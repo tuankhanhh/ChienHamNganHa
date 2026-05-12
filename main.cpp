@@ -11,9 +11,9 @@
 
 
 #define MAX_COMPANIONS 5
-#define MAX_BULLETS 50
+#define MAX_BULLETS 150
 #define MAX_ENEMIES 30
-#define MAX_PARTICLES 100
+#define MAX_PARTICLES 400
 #define MAX_STARS 100
 #define MAX_POWERUPS 10
 #define SCREEN_WIDTH 800
@@ -44,6 +44,8 @@ typedef struct {
     float ultimateTimer;         // Type 7: Ultimate Charge
     float companionBoostTimer;   // Type 8: Companion
     
+    float invincibilityTimer;
+    
     // Bi?n tr?ng thái d?n và vu khí
     bool doubleShot;             
     int currentFruitType;        // 0: Ð?n thu?ng, 1: Chu?i, 5: Táo
@@ -63,6 +65,7 @@ typedef struct {
     float dx, dy;
     bool active;
     bool highDamage;
+    bool isEnemy;
 } Bullet;
 
 typedef struct {
@@ -89,6 +92,10 @@ typedef struct {
     float x, y;
     float dx, dy;
     int life;
+    int maxLife;     // Dùng d? tính toán d? nh? d?n c?a h?t
+    int color;       // Màu s?c c?a h?t
+    float size;      // Bán kính h?t
+    int type;        // 0: Tia l?a b?n ra, 1: Sóng xung kích (Shockwave)
     bool active;
 } Particle;
 
@@ -265,6 +272,7 @@ void initGame() {
     player.companionBoostTimer = 0;
     player.currentFruitType = 0; // Tr?ng thái d?n thu?ng ban d?u
     player.laserTimer = 0;
+    player.invincibilityTimer = 0;
 
     // ===== KH?I T?O MÁY BAY H? TR? =====
     // T?t toàn b? máy bay lúc m?i vào game, chúng ch? b?t lên khi an power-up
@@ -279,6 +287,7 @@ void initGame() {
     for (int i = 0; i < MAX_BULLETS; i++) {
         bullets[i].active = false;
         bullets[i].highDamage = false;
+        bullets[i].isEnemy = false;
     }
     for (int i = 0; i < MAX_ENEMIES; i++) enemies[i].active = false;
     for (int i = 0; i < MAX_POWERUPS; i++) powerUps[i].active = false;
@@ -315,9 +324,22 @@ void initGame() {
 
 // V? tàu ngu?i choi
 void drawPlayer() {
+    // ===== HI?U ?NG NH?P NHÁY KHI B?T T? =====
+    if (player.invincibilityTimer > 0) {
+        // C? m?i kho?nh kh?c ng?n s? b? qua không v? máy bay d? t?o hi?u ?ng nh?p nháy
+        // H? s? 15 di?u ch?nh t?c d? ch?p t?t (có th? tang/gi?m tùy ý)
+        if ((int)(player.invincibilityTimer * 15) % 2 == 0) {
+            // V?n v? khiên n?u có, nhung không v? máy bay
+            if (player.shieldTimer > 0) {
+                midpointCircle(player.x, player.y, player.radius + 10, LIGHTBLUE);
+            }
+            return; // Thoát hàm s?m, không v? máy bay
+        }
+    }
+
     int x = player.x;
     int y = player.y;
-    int r = player.radius; // S? d?ng radius làm t? l? phóng to/thu nh? cho toàn b? máy bay
+    int r = player.radius;
 
     // ===== CÀI Ð?T MÀU S?C =====
     const int BODY_FILL_COLOR = CYAN;
@@ -640,57 +662,59 @@ void drawBullets() {
 
     for (int i = 0; i < MAX_BULLETS; i++) {
         if (bullets[i].active) {
-            int radius = player.bulletSizeTimer > 0 ? currentBulletSize * 1.5 : currentBulletSize;
             int bx = bullets[i].x;
             int by = bullets[i].y;
 
-            if (player.currentFruitType == 1) { 
-                // --- HÌNH CHU?I (Ð?N) M?M M?I ---
-                setcolor(YELLOW);
-                setfillstyle(SOLID_FILL, YELLOW);
-                int w = radius * 2.0; // Chi?u dài chu?i d?a trên kích thu?c d?n
-                int h = radius * 1.2; // Ð? cong
-                
-                // V? các di?m n?i ti?p nhau
-                for (float t = -1.57; t <= 1.57; t += 0.15) {
-                    int cx = bx + sin(t) * w;
-                    int cy = by + cos(t) * h;
-                    int r = (int)((radius * 0.9) * (1.0 - fabs(t) / 1.57));
-                    if (r < 1) r = 1;
-                    fillellipse(cx, cy, r, r);
+            if (bullets[i].isEnemy) {
+                // --- Ð?N Ð?CH B?N RA (TRÒN, Ð?) ---
+                int enemyBulletRadius = 5;
+                setcolor(WHITE); // Vi?n tr?ng
+                setfillstyle(SOLID_FILL, LIGHTRED); // Lõi d?
+                fillellipse(bx, by, enemyBulletRadius, enemyBulletRadius);
+                circle(bx, by, enemyBulletRadius);
+            } 
+            else {
+                // --- Ð?N NGU?I CHOI ---
+                int radius = player.bulletSizeTimer > 0 ? currentBulletSize * 1.5 : currentBulletSize;
+
+                if (player.currentFruitType == 1) { 
+                    // CHU?I
+                    setcolor(YELLOW);
+                    setfillstyle(SOLID_FILL, YELLOW);
+                    int w = radius * 2.0; 
+                    int h = radius * 1.2; 
+                    for (float t = -1.57; t <= 1.57; t += 0.15) {
+                        int cx = bx + sin(t) * w;
+                        int cy = by + cos(t) * h;
+                        int r = (int)((radius * 0.9) * (1.0 - fabs(t) / 1.57));
+                        if (r < 1) r = 1;
+                        fillellipse(cx, cy, r, r);
+                    }
+                    setcolor(BROWN);
+                    setfillstyle(SOLID_FILL, BROWN);
+                    int numSize = radius / 3;
+                    if (numSize < 1) numSize = 1;
+                    fillellipse(bx + w, by, numSize, numSize);
+                } 
+                else if (player.currentFruitType == 5) { 
+                    // TÁO
+                    int r_apple = radius * 1.6; 
+                    setcolor(LIGHTRED);
+                    setfillstyle(SOLID_FILL, LIGHTRED);
+                    fillellipse(bx - r_apple/2 + 1, by, r_apple/2 + 2, r_apple); 
+                    fillellipse(bx + r_apple/2 - 1, by, r_apple/2 + 2, r_apple); 
+                    setcolor(BROWN);
+                    line(bx, by - r_apple + 2, bx, by - r_apple - 8); 
+                    setcolor(LIGHTGREEN);
+                    setfillstyle(SOLID_FILL, LIGHTGREEN);
+                    fillellipse(bx + r_apple/2 + 1, by - r_apple - 4, r_apple/2, r_apple/3 + 1); 
+                } 
+                else { 
+                    // Ð?N THU?NG
+                    setcolor(WHITE);
+                    setfillstyle(SOLID_FILL, bullets[i].highDamage ? RED : YELLOW);
+                    fillellipse(bx, by, radius, radius);
                 }
-                
-                // Núm chu?i
-                setcolor(BROWN);
-                setfillstyle(SOLID_FILL, BROWN);
-                int numSize = radius / 3;
-                if (numSize < 1) numSize = 1;
-                fillellipse(bx + w, by, numSize, numSize);
-            } 
-            else if (player.currentFruitType == 5) { 
-                // --- HÌNH TÁO (Ð?N) PHÓNG TO ---
-                int r_apple = radius * 1.6; // Phóng to d?n táo lên 1.6 l?n so v?i bình thu?ng
-                
-                setcolor(LIGHTRED);
-                setfillstyle(SOLID_FILL, LIGHTRED);
-                // V? 2 n?a to bè ra d? th?y rõ lõm táo
-                fillellipse(bx - r_apple/2 + 1, by, r_apple/2 + 2, r_apple); 
-                fillellipse(bx + r_apple/2 - 1, by, r_apple/2 + 2, r_apple); 
-                
-                // Cu?ng
-                setcolor(BROWN);
-                line(bx, by - r_apple + 2, bx, by - r_apple - 8); 
-                
-                // Lá
-                setcolor(LIGHTGREEN);
-                setfillstyle(SOLID_FILL, LIGHTGREEN);
-                fillellipse(bx + r_apple/2 + 1, by - r_apple - 4, r_apple/2, r_apple/3 + 1); 
-            } 
-            else { 
-                // --- Ð?N THU?NG ---
-                setcolor(WHITE);
-                setfillstyle(SOLID_FILL, bullets[i].highDamage ? RED : YELLOW);
-                fillellipse(bx, by, radius, radius);
             }
         }
     }
@@ -1468,8 +1492,32 @@ void drawPowerUps() {
 void drawParticles() {
     for (int i = 0; i < MAX_PARTICLES; i++) {
         if (particles[i].active) {
-            setcolor(particles[i].life > 15 ? YELLOW : RED);
-            circle(particles[i].x, particles[i].y, 2);
+            if (particles[i].type == 1) {
+                // V? SHOCKWAVE (Vòng sáng lan t?a)
+                setcolor(particles[i].life > 6 ? WHITE : LIGHTCYAN); // Ð?i màu khi m? d?n
+                circle(particles[i].x, particles[i].y, (int)particles[i].size);
+                circle(particles[i].x, particles[i].y, (int)particles[i].size - 1); // Cho vi?n dày hon
+            } else {
+                // V? TIA L?A
+                int col = particles[i].color;
+                
+                // Khi g?n tàn (life th?p), tia l?a ngu?i di và bi?n thành khói
+                if (particles[i].life < particles[i].maxLife / 3) {
+                    col = DARKGRAY; // Khói
+                } else if (particles[i].life < particles[i].maxLife / 2 && col == WHITE) {
+                    col = YELLOW;   // Tr?ng ngu?i thành vàng
+                }
+                
+                setcolor(col);
+                setfillstyle(SOLID_FILL, col);
+                
+                // Bán kính h?t teo nh? d?n theo th?i gian s?ng
+                int r = (int)(particles[i].size * ((float)particles[i].life / particles[i].maxLife));
+                if (r < 1) r = 1;
+                
+                // V? h?t d?c
+                fillellipse(particles[i].x, particles[i].y, r, r);
+            }
         }
     }
 }
@@ -1597,7 +1645,12 @@ void updatePlayer() {
                 triggerUltimate();
             }
         }
-
+		
+		// ===== C?P NH?T TH?I GIAN B?T T? =====
+        if (player.invincibilityTimer > 0) {
+            player.invincibilityTimer -= 0.02; // Gi?m d?n timer m?i frame
+        }
+		
         // ===== BUFF / POWER-UP =====
         if (player.speedBoostTimer > 0) {
             currentPlayerSpeed = 15;
@@ -1653,6 +1706,7 @@ void shootBullet() {
             bullets[i].dx = 0;
             bullets[i].dy = -BULLET_SPEED;
             bullets[i].highDamage = player.damageBoostTimer > 0;
+            bullets[i].isEnemy = false; // Ð?n c?a ngu?i choi
             break;
         }
     }
@@ -1669,6 +1723,7 @@ void shootBullet() {
                 bullets[j].dx = 0;
                 bullets[j].dy = -BULLET_SPEED;
                 bullets[j].highDamage = player.damageBoostTimer > 0;
+                bullets[j].isEnemy = false; // Ð?n c?a droids
                 break;
             }
         }
@@ -1866,6 +1921,7 @@ void updateEnemies() {
                             bullets[j].dx = BULLET_SPEED * cos(angle) * 0.5;
                             bullets[j].dy = BULLET_SPEED * sin(angle) * 0.5;
                             bullets[j].active = true;
+                            bullets[j].isEnemy = true;
                             break;
                         }
                     }
@@ -1967,10 +2023,20 @@ void updateEnemies() {
 
             enemies[i].x += enemies[i].dx;
             enemies[i].y += enemies[i].dy;
+            
+            // Gi? d?ch không l?t ra kh?i 2 c?nh trái/ph?i màn hình
             if (enemies[i].x < enemies[i].radius) enemies[i].x = enemies[i].radius;
             if (enemies[i].x > SCREEN_WIDTH - enemies[i].radius) enemies[i].x = SCREEN_WIDTH - enemies[i].radius;
+            
+            // Gi? d?ch không bay ngu?c lên quá tr?n màn hình (khi dang truy du?i)
             if (enemies[i].y < enemies[i].radius) enemies[i].y = enemies[i].radius;
-            if (enemies[i].y > SCREEN_HEIGHT - enemies[i].radius) enemies[i].y = SCREEN_HEIGHT - enemies[i].radius;
+            
+            // ===== GI?I H?N T?M TH?P C?A Ð?CH =====
+            // Gi?i h?n y không cho d?ch xu?ng th?p hon t?m súng (cách dáy màn hình 150 pixel)
+            int lowerLimitY = SCREEN_HEIGHT - 60; 
+            if (enemies[i].y > lowerLimitY) {
+                enemies[i].y = lowerLimitY;
+            }
         }
     }
 }
@@ -2073,17 +2139,49 @@ void updatePowerUps() {
 
 // T?o v? n?
 void createExplosion(float x, float y) {
+    // 1. T?O 1 SÓNG XUNG KÍCH (SHOCKWAVE)
     for (int i = 0; i < MAX_PARTICLES; i++) {
         if (!particles[i].active) {
             particles[i].x = x;
             particles[i].y = y;
-            float angle = rand() % 360 * PI / 180;
-            float speed = (rand() % 3) + 1;
-            particles[i].dx = speed * cos(angle);
-            particles[i].dy = speed * sin(angle);
-            particles[i].life = 30;
+            particles[i].dx = 0;
+            particles[i].dy = 0;
+            particles[i].life = 12;      // T?n t?i trong th?i gian ng?n
+            particles[i].maxLife = 12;
+            particles[i].size = 2;       // B?t d?u t? tâm
+            particles[i].type = 1;       // Lo?i: Shockwave
             particles[i].active = true;
             break;
+        }
+    }
+
+    // 2. T?O TIA L?A B?N TÓE RA M?I HU?NG
+    int numSparks = 10 + rand() % 6; // 10 d?n 15 h?t
+    for (int k = 0; k < numSparks; k++) {
+        for (int i = 0; i < MAX_PARTICLES; i++) {
+            if (!particles[i].active) {
+                particles[i].x = x;
+                particles[i].y = y;
+                
+                // Góc ng?u nhiên 360 d?
+                float angle = (rand() % 360) * PI / 180.0;
+                // T?c d? vang ng?u nhiên t? 2.0 d?n 8.0
+                float speed = (rand() % 60) / 10.0 + 2.0; 
+                
+                particles[i].dx = speed * cos(angle);
+                particles[i].dy = speed * sin(angle);
+                particles[i].life = 15 + rand() % 15;
+                particles[i].maxLife = particles[i].life;
+                particles[i].size = (rand() % 3) + 2; // H?t to nh? khác nhau
+                
+                // Tr?n màu l?a ng?u nhiên
+                int col = rand() % 4;
+                particles[i].color = (col == 0) ? WHITE : (col == 1) ? YELLOW : (col == 2) ? LIGHTRED : RED;
+                
+                particles[i].type = 0; // Lo?i: Tia l?a d?c
+                particles[i].active = true;
+                break;
+            }
         }
     }
 }
@@ -2104,6 +2202,16 @@ void updateParticles() {
         if (particles[i].active) {
             particles[i].x += particles[i].dx;
             particles[i].y += particles[i].dy;
+            
+            if (particles[i].type == 1) {
+                // N?u là shockwave: Phình to ra r?t nhanh
+                particles[i].size += 4.5; 
+            } else {
+                // N?u là tia l?a: Ch?m d?n d?u t?o c?m giác bung t?a t? nhiên
+                particles[i].dx *= 0.85;
+                particles[i].dy *= 0.85;
+            }
+
             particles[i].life--;
             if (particles[i].life <= 0) particles[i].active = false;
         }
@@ -2139,38 +2247,56 @@ void checkCollisions() {
     // ----- 2. X? LÝ VA CH?M Ð?N -----
     for (int i = 0; i < MAX_BULLETS; i++) {
         if (bullets[i].active) {
-            for (int j = 0; j < MAX_ENEMIES; j++) {
-                if (enemies[j].active) {
-                    float dist = sqrt(pow(bullets[i].x - enemies[j].x, 2) + pow(bullets[i].y - enemies[j].y, 2));
-                    float bulletRadius = player.bulletSizeTimer > 0 ? currentBulletSize * 1.5 : currentBulletSize;
+            
+            // TRU?NG H?P 1: Ð?N NGU?I CHOI B?N TRÚNG Ð?CH
+            if (!bullets[i].isEnemy) {
+                for (int j = 0; j < MAX_ENEMIES; j++) {
+                    if (enemies[j].active) {
+                        float dist = sqrt(pow(bullets[i].x - enemies[j].x, 2) + pow(bullets[i].y - enemies[j].y, 2));
+                        float bulletRadius = player.bulletSizeTimer > 0 ? currentBulletSize * 1.5 : currentBulletSize;
 
-                    if (dist < enemies[j].radius + bulletRadius) {
-                        bullets[i].active = false; // Ð?n bi?n m?t
-                        
-                        // HI?U ?NG N? KHI CH?M (Impact Effect)
-                        createExplosion(bullets[i].x, bullets[i].y);
+                        if (dist < enemies[j].radius + bulletRadius) {
+                            bullets[i].active = false; 
+                            createExplosion(bullets[i].x, bullets[i].y);
+                            enemies[j].health -= bullets[i].highDamage ? 2 : 1;
 
-                        enemies[j].health -= bullets[i].highDamage ? 2 : 1;
+                            if (enemies[j].health <= 0) {
+                                enemies[j].active = false;
+                                int points = (enemies[j].type <= 5) ? 10 + enemies[j].type * 5 : 
+                                             (enemies[j].type <= 10) ? 15 + enemies[j].type * 3 : 20;
+                                score += points;
 
-                        if (enemies[j].health <= 0) {
-                            enemies[j].active = false;
-                            
-                            // TÍNH ÐI?M VÀ ROI Ð? (Ðã di?n l?i logic t? b?n cu c?a b?n)
-                            int points = (enemies[j].type <= 5) ? 10 + enemies[j].type * 5 : 
-                                         (enemies[j].type <= 10) ? 15 + enemies[j].type * 3 : 20;
-                            score += points;
+                                if (enemies[j].type >= 16) { 
+                                    bossActive = false; 
+                                    postBossDifficulty++; 
+                                }
+                                if (enemies[j].type == 19) gameWon = true;
 
-                            if (enemies[j].type >= 16) { 
-                                bossActive = false; 
-                                postBossDifficulty++; 
+                                for(int k = 0; k < 3; k++) 
+                                    createExplosion(enemies[j].x + rand()%10-5, enemies[j].y + rand()%10-5);
+                                
+                                spawnPowerUp(enemies[j].x, enemies[j].y);
                             }
-                            if (enemies[j].type == 19) gameWon = true;
-
-                            // N? l?n khi ch?t (3 v? n? nh? ng?u nhiên xung quanh)
-                            for(int k = 0; k < 3; k++) 
-                                createExplosion(enemies[j].x + rand()%10-5, enemies[j].y + rand()%10-5);
-                            
-                            spawnPowerUp(enemies[j].x, enemies[j].y);
+                        }
+                    }
+                }
+            } 
+            // TRU?NG H?P 2: Ð?N Ð?CH B?N TRÚNG NGU?I CHOI
+            else {
+                if (player.invincibilityTimer <= 0) { // Ch? sát thuong khi không b?t t?
+                    float dist = sqrt(pow(bullets[i].x - player.x, 2) + pow(bullets[i].y - player.y, 2));
+                    if (dist < player.radius + 5) { // 5 là bán kính d?n d?ch
+                        bullets[i].active = false; // Ð?n ch?m là n?/bi?n m?t
+                        createExplosion(bullets[i].x, bullets[i].y);
+                        
+                        // Xét khiên/m?ng (gi?ng h?t lúc d?ch dâm vào ngu?i)
+                        if (player.shieldTimer > 0) {
+                            player.shieldTimer = 0;          // V? khiên
+                            player.invincibilityTimer = 1.0; // B?t t? nh? 1s
+                        } else {
+                            player.lives--;
+                            player.invincibilityTimer = 2.0; // B?t t? 2s
+                            if (player.lives <= 0) gameOver = true;
                         }
                     }
                 }
@@ -2180,11 +2306,24 @@ void checkCollisions() {
 
     // ----- 3. VA CH?M NGU?I CHOI & K? Ð?CH -----
     for (int i = 0; i < MAX_ENEMIES; i++) {
-        if (enemies[i].active && player.shieldTimer <= 0) {
+        // Ch? c?n ngu?i choi không trong tr?ng thái b?t t? thì s? xét va ch?m
+        if (enemies[i].active && player.invincibilityTimer <= 0) {
             float dist = sqrt(pow(player.x - enemies[i].x, 2) + pow(player.y - enemies[i].y, 2));
             if (dist < player.radius + enemies[i].radius) {
-                player.lives--;
-                if (player.lives <= 0) gameOver = true;
+                
+                // N?U CÓ KHIÊN: M?t khiên, không tr? m?ng
+                if (player.shieldTimer > 0) {
+                    player.shieldTimer = 0;          // V? khiên ngay l?p t?c
+                    player.invincibilityTimer = 1.0; // Cho 1 giây b?t t? d? không b? d?ch khác dâm b?i thêm
+                } 
+                // N?U KHÔNG CÓ KHIÊN: Tr? m?ng
+                else {
+                    player.lives--;
+                    player.invincibilityTimer = 2.0; // B?t t? 2 giây sau khi m?t m?ng
+                    if (player.lives <= 0) gameOver = true;
+                }
+                
+                // Dù dâm vào khiên hay dâm vào thân máy bay, k? d?ch dó cung s? n? tung
                 enemies[i].active = false;
                 if (enemies[i].type >= 16) { bossActive = false; postBossDifficulty++; }
                 createExplosion(enemies[i].x, enemies[i].y);
