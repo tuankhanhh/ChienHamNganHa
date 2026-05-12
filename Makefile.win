@@ -6,12 +6,12 @@ CC       = gcc.exe
 WINDRES  = windres.exe
 OBJ      = main.o
 LINKOBJ  = main.o
-LIBS     = -L"F:/Program/Dev-Cpp/MinGW32/lib" -L"F:/Program/Dev-Cpp/MinGW32/mingw32/lib" -static-libstdc++ -static-libgcc -lbgi -lgdi32 -lcomdlg32 -luuid -loleaut32 -lole32
+LIBS     = -L"F:/Program/Dev-Cpp/MinGW32/lib" -L"F:/Program/Dev-Cpp/MinGW32/mingw32/lib" -static-libstdc++ -static-libgcc -lbgi -lgdi32 -lcomdlg32 -luuid -loleaut32 -lole32 -lwinmm
 INCS     = -I"F:/Program/Dev-Cpp/MinGW32/include" -I"F:/Program/Dev-Cpp/MinGW32/mingw32/include" -I"F:/Program/Dev-Cpp/MinGW32/lib/gcc/mingw32/4.8.1/include"
 CXXINCS  = -I"F:/Program/Dev-Cpp/MinGW32/include" -I"F:/Program/Dev-Cpp/MinGW32/mingw32/include" -I"F:/Program/Dev-Cpp/MinGW32/lib/gcc/mingw32/4.8.1/include" -I"F:/Program/Dev-Cpp/MinGW32/lib/gcc/mingw32/4.8.1/include/c++"
 BIN      = ChienHamNganHa.exe
-CXXFLAGS = $(CXXINCS) 
-CFLAGS   = $(INCS) 
+CXXFLAGS = $(CXXINCS) -lwinmm
+CFLAGS   = $(INCS) -lwinmm
 RM       = rm.exe -f
 
 .PHONY: all all-before all-after clean clean-custom
