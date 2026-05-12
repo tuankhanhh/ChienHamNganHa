@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <mmsystem.h>
 
-
+// DANG KY HANG SO (DEFINES)
 #define MAX_COMPANIONS 5
 #define MAX_BULLETS 150
 #define MAX_ENEMIES 30
@@ -22,40 +22,35 @@
 #define BULLET_SPEED 17
 #define SHOOT_DELAY 150
 #define ULTIMATE_COOLDOWN 5
-#define COMPANION_SHOOT_DELAY 2
-#define RIGHT_COMPANION_SHOOT_DELAY 1
-#define LEFT_COMPANION_SHOOT_DELAY 0.5
 #define PI 3.14159265358979323846
 
-// C?u trúc d? li?u
+// CAU TRUC DU LIEU (STRUCTS)
 typedef struct {
     float x, y;
     float dx, dy;
-    float targetDx, targetDy;
     int radius;
     float lastAngle;
     int lives;
     
-    float speedBoostTimer;       // Type 2: Speed
-    float fireRateBoostTimer;    // Type 1: Fire Rate
-    float shieldTimer;           // Type 4: Shield
-    float damageBoostTimer;      // Type 5: Damage Boost
-    float bulletSizeTimer;       // Type 6: Bullet Size
-    float ultimateTimer;         // Type 7: Ultimate Charge
-    float companionBoostTimer;   // Type 8: Companion
-    
+    // Thoi gian hieu luc cua buff
+    float speedBoostTimer;       
+    float fireRateBoostTimer;    
+    float shieldTimer;           
+    float damageBoostTimer;      
+    float bulletSizeTimer;       
+    float ultimateTimer;         
+    float companionBoostTimer;   
     float invincibilityTimer;
     
-    // Bi?n tr?ng thái d?n và vu khí
+    // Trang thai vu khi
     bool doubleShot;             
-    int currentFruitType;        // 0: Ð?n thu?ng, 1: Chu?i, 5: Táo
+    int currentFruitType;        // 0: Dan thuong, 1: Chuoi, 5: Tao
     float laserTimer;
 } Player;
 
 typedef struct {
     float x, y;
     float lastAngle;
-    float shootTimer;
     int radius;
     bool active;
 } Companion;
@@ -92,10 +87,10 @@ typedef struct {
     float x, y;
     float dx, dy;
     int life;
-    int maxLife;     // Dùng d? tính toán d? nh? d?n c?a h?t
-    int color;       // Màu s?c c?a h?t
-    float size;      // Bán kính h?t
-    int type;        // 0: Tia l?a b?n ra, 1: Sóng xung kích (Shockwave)
+    int maxLife;     
+    int color;       
+    float size;      
+    int type;        // 0: Tia lua, 1: Song xung kich (Shockwave)
     bool active;
 } Particle;
 
@@ -105,7 +100,7 @@ typedef struct {
     int radius;
 } Star;
 
-// Bi?n toàn c?c
+// BIEN TOAN CUC (GLOBALS)
 float levelTransitionTimer = 0;
 int nextBossScore = 500;
 Player player;
@@ -115,9 +110,9 @@ Enemy enemies[MAX_ENEMIES];
 PowerUp powerUps[MAX_POWERUPS];
 Particle particles[MAX_PARTICLES];
 Star stars[MAX_STARS];
+
 int score = 0;
 bool gameOver = false;
-bool gameWon = false;
 clock_t lastShotTime = 0;
 int currentShootDelay = SHOOT_DELAY;
 float currentPlayerSpeed = PLAYER_SPEED;
@@ -125,144 +120,49 @@ float currentBulletSize = 5;
 int difficultyLevel = 0;
 bool bossActive = false;
 int postBossDifficulty = 0;
-bool isLaserSoundPlaying = false; // Thêm vào ph?n bi?n toàn c?c
-// Function prototypes
+bool isLaserSoundPlaying = false; 
+
+// KHAI BAO HAM (FUNCTION PROTOTYPES)
 void initGame();
+void updateStars();
+void updatePlayer();
+void updateCompanions();
+void updateBullets();
+void updateEnemies();
+void updatePowerUps();
+void updateParticles();
+void checkCollisions();
+void spawnEnemy();
+void spawnBoss();
+void spawnPowerUp(float x, float y);
+void shootBullet();
+void triggerUltimate();
+void createExplosion(float x, float y);
+
+void drawBackground();
 void drawPlayer();
 void drawCompanions();
 void drawBullets();
 void drawEnemies();
 void drawPowerUps();
 void drawParticles();
-void drawBackground();
-void updateStars();
-void updatePlayer();
-void shootBullet();
-void shootCompanionBullet(int index);
-void updateCompanions();
-void updateBullets();
-void spawnEnemy();
-void spawnBoss();
-void updateEnemies();
-void spawnPowerUp(float x, float y);
-void updatePowerUps();
-void createExplosion(float x, float y);
-void updateParticles();
-void checkCollisions();
+void drawLaser();
 void drawUI();
-void triggerUltimate();
-void drawLaser(); 
-// ================= CÁC THU?T TOÁN Ð? H?A CO B?N =================
 
-// 1. ÁP D?NG: Thu?t toán v? du?ng th?ng Bresenham
-void bresenhamLine(int x1, int y1, int x2, int y2, int color) {
-    int dx = abs(x2 - x1);
-    int dy = abs(y2 - y1);
-    int sx = (x1 < x2) ? 1 : -1;
-    int sy = (y1 < y2) ? 1 : -1;
-    int err = dx - dy;
+void midpointCircle(int xc, int yc, int r, int color);
+void recursiveBoundaryFill(int x, int y, int fill_color, int boundary_color);
+void bresenhamLine(int x1, int y1, int x2, int y2, int color);
+void drawKochLine(float x1, float y1, float x2, float y2, int iter, int color);
+void drawKochSnowflake(int x, int y, int radius, int iter, float angle, int color);
 
-    while (1) {
-        putpixel(x1, y1, color);
-        if (x1 == x2 && y1 == y2) break;
-        int e2 = 2 * err;
-        if (e2 > -dy) { err -= dy; x1 += sx; }
-        if (e2 < dx) { err += dx; y1 += sy; }
-    }
-}
-
-// 2. ÁP D?NG: Thu?t toán v? du?ng tròn Midpoint
-void midpointCircle(int xc, int yc, int r, int color) {
-    int x = 0, y = r;
-    int p = 1 - r;
-
-    while (x <= y) {
-        putpixel(xc + x, yc + y, color);
-        putpixel(xc - x, yc + y, color);
-        putpixel(xc + x, yc - y, color);
-        putpixel(xc - x, yc - y, color);
-        putpixel(xc + y, yc + x, color);
-        putpixel(xc - y, yc + x, color);
-        putpixel(xc + y, yc - x, color);
-        putpixel(xc - y, yc - x, color);
-
-        if (p < 0) {
-            p += 2 * x + 3;
-        } else {
-            p += 2 * (x - y) + 5;
-            y--;
-        }
-        x++;
-    }
-}
-
-// 3. ÁP D?NG: Thu?t toán tô màu d? quy Boundary Fill (4 d?nh)
-// Luu ý: Ð? quy sâu có th? gây tràn b? nh? stack (Stack Overflow), 
-// nên thu?t toán này ch? áp d?ng cho các vùng di?n tích nh?.
-void recursiveBoundaryFill(int x, int y, int fill_color, int boundary_color) {
-    // Ch?n d? quy n?u t?a d? l?t ra ngoài gi?i h?n c?a s? d? h?a
-    if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT) return;
-
-    int current_color = getpixel(x, y);
-    if (current_color != boundary_color && current_color != fill_color) {
-        putpixel(x, y, fill_color);
-        recursiveBoundaryFill(x + 1, y, fill_color, boundary_color);
-        recursiveBoundaryFill(x - 1, y, fill_color, boundary_color);
-        recursiveBoundaryFill(x, y + 1, fill_color, boundary_color);
-        recursiveBoundaryFill(x, y - 1, fill_color, boundary_color);
-    }
-}
-// 4. ÁP D?NG FRACTAL: Thu?t toán d? quy v? du?ng cong Koch
-void drawKochLine(float x1, float y1, float x2, float y2, int iter, int color) {
-    if (iter == 0) {
-        // T?n d?ng luôn thu?t toán Bresenham dã vi?t ? bài tru?c d? v? do?n th?ng
-        bresenhamLine((int)x1, (int)y1, (int)x2, (int)y2, color);
-    } else {
-        float dx = (x2 - x1) / 3.0f;
-        float dy = (y2 - y1) / 3.0f;
-
-        float p1x = x1 + dx;
-        float p1y = y1 + dy;
-
-        float p2x = x1 + 2 * dx;
-        float p2y = y1 + 2 * dy;
-
-        // Tính t?a d? di?m chóp c?a tam giác d?u (quay m?t góc 60 d? ~ PI/3)
-        // Do h? t?a d? Y c?a màn hình hu?ng xu?ng, ta dùng d?u tr? cho tr?c Y d? d?nh nhô ra ngoài
-        float px = p1x + dx * cos(PI / 3) + dy * sin(PI / 3);
-        float py = p1y - dx * sin(PI / 3) + dy * cos(PI / 3);
-
-        // Ð? quy 4 do?n c?a du?ng cong Koch
-        drawKochLine(x1, y1, p1x, p1y, iter - 1, color);
-        drawKochLine(p1x, p1y, px, py, iter - 1, color);
-        drawKochLine(px, py, p2x, p2y, iter - 1, color);
-        drawKochLine(p2x, p2y, x2, y2, iter - 1, color);
-    }
-}
-
-// Hàm bao b?c: Dùng 3 du?ng cong Koch ghép l?i thành hình Bông Tuy?t (áp d?ng cho Enemy)
-void drawKochSnowflake(int x, int y, int radius, int iter, int color) {
-    // 3 d?nh c?a m?t tam giác d?u bao quanh tâm (x, y)
-    float p1x = x,                p1y = y - radius;
-    float p2x = x + radius * 0.866f, p2y = y + radius * 0.5f; // 0.866 ~ cos(30 d?)
-    float p3x = x - radius * 0.866f, p3y = y + radius * 0.5f;
-
-    // V? 3 c?nh b?ng du?ng cong Koch (chú ý th? t? d?nh d? bông tuy?t nhô ra ngoài)
-    drawKochLine(p1x, p1y, p2x, p2y, iter, color);
-    drawKochLine(p2x, p2y, p3x, p3y, iter, color);
-    drawKochLine(p3x, p3y, p1x, p1y, iter, color);
-}
-// ================================================================
-// Kh?i t?o game
+// LOGIC KHOI TAO GAME
 void initGame() {
     player.x = SCREEN_WIDTH / 2;
     player.y = SCREEN_HEIGHT - 35;
     player.dx = 0;
     player.dy = 0;
-    player.targetDx = 0;
-    player.targetDy = 0;
     player.radius = 15;
-    player.lastAngle = -PI / 2; // Hu?ng lên m?c d?nh
+    player.lastAngle = -PI / 2; 
     player.lives = 3;
     player.speedBoostTimer = 0;
     player.fireRateBoostTimer = 0;
@@ -272,21 +172,18 @@ void initGame() {
     player.damageBoostTimer = 0;
     player.bulletSizeTimer = 0;
     player.companionBoostTimer = 0;
-    player.currentFruitType = 0; // Tr?ng thái d?n thu?ng ban d?u
+    player.currentFruitType = 0; 
     player.laserTimer = 0;
     player.invincibilityTimer = 0;
-    
 
-    // ===== KH?I T?O MÁY BAY H? TR? =====
-    // T?t toàn b? máy bay lúc m?i vào game, chúng ch? b?t lên khi an power-up
+    // Khoi tao phi thuyen de (Companions)
     for (int i = 0; i < MAX_COMPANIONS; i++) {
         companions[i].active = false;
         companions[i].radius = 10;
         companions[i].lastAngle = -PI / 2;
-        companions[i].shootTimer = 0;
     }
 
-    // ===== KH?I T?O CÁC M?NG KHÁC =====
+    // Khoi tao mang du lieu
     for (int i = 0; i < MAX_BULLETS; i++) {
         bullets[i].active = false;
         bullets[i].highDamage = false;
@@ -296,6 +193,7 @@ void initGame() {
     for (int i = 0; i < MAX_POWERUPS; i++) powerUps[i].active = false;
     for (int i = 0; i < MAX_PARTICLES; i++) particles[i].active = false;
     
+    // Khoi tao sao bang lam nen
     for (int i = 0; i < MAX_STARS; i++) {
         stars[i].x = rand() % SCREEN_WIDTH;
         stars[i].y = rand() % SCREEN_HEIGHT;
@@ -303,10 +201,9 @@ void initGame() {
         stars[i].speed = (rand() % 5 + 1) * 0.1;
     }
 
-    // ===== KH?I T?O CH? S? GAME =====
+    // Reset thong so diem & level
     score = 0;
     gameOver = false;
-    gameWon = false;
     lastShotTime = 0;
     currentShootDelay = SHOOT_DELAY;
     currentPlayerSpeed = PLAYER_SPEED;
@@ -314,1230 +211,18 @@ void initGame() {
     difficultyLevel = 0;
     bossActive = false;
     postBossDifficulty = 0;
-    
     levelTransitionTimer = 0;
     nextBossScore = 500;
 
-    // ===== NH?C N?N =====
-    // Ðóng nh?c cu n?u có (dùng cho tru?ng h?p nh?n R d? choi l?i)
+    // Bat nhac nen & dong cac tap am thanh cu
     mciSendString("close bgm", NULL, 0, NULL); 
-    // M? file nhacnen.mp3 và phát l?p l?i
     mciSendString("open \"nhacnen.mp3\" type mpegvideo alias bgm", NULL, 0, NULL);
     mciSendString("play bgm repeat", NULL, 0, NULL);
     mciSendString("close laser_sound", NULL, 0, NULL); 
     mciSendString("open \"laser.wav\" type mpegvideo alias laser_sound", NULL, 0, NULL);
 }
 
-// V? tàu ngu?i choi
-void drawPlayer() {
-    // ===== HI?U ?NG NH?P NHÁY KHI B?T T? =====
-    if (player.invincibilityTimer > 0) {
-        // C? m?i kho?nh kh?c ng?n s? b? qua không v? máy bay d? t?o hi?u ?ng nh?p nháy
-        // H? s? 15 di?u ch?nh t?c d? ch?p t?t (có th? tang/gi?m tùy ý)
-        if ((int)(player.invincibilityTimer * 15) % 2 == 0) {
-            // V?n v? khiên n?u có, nhung không v? máy bay
-            if (player.shieldTimer > 0) {
-                midpointCircle(player.x, player.y, player.radius + 10, LIGHTBLUE);
-            }
-            return; // Thoát hàm s?m, không v? máy bay
-        }
-    }
-
-    int x = player.x;
-    int y = player.y;
-    int r = player.radius;
-
-    // ===== CÀI Ð?T MÀU S?C =====
-    const int BODY_FILL_COLOR = CYAN;
-    const int LINE_COLOR = LIGHTCYAN;
-    const int COCKPIT_FILL_COLOR = BLUE; 
-    const int POD_FILL_COLOR = LIGHTCYAN; 
-
-    setcolor(LINE_COLOR); 
-    setfillstyle(SOLID_FILL, BODY_FILL_COLOR);
-
-    // ===== 1. CORE BODY & MUI =====
-    int body_points[] = {
-        x, y - (int)(r * 1.6),            
-        x - (int)(r * 0.4), y - (int)(r * 1.3), 
-        x - (int)(r * 0.3), y - (int)(r * 0.4), 
-        x - (int)(r * 0.3), y + (int)(r * 0.8), 
-        x + (int)(r * 0.3), y + (int)(r * 0.8), 
-        x + (int)(r * 0.3), y - (int)(r * 0.4), 
-        x + (int)(r * 0.4), y - (int)(r * 1.3), 
-        x, y - (int)(r * 1.6)             
-    };
-    fillpoly(8, body_points);
-
-    // ===== 2. CÁNH TAM GIÁC & CÁC ÐU?NG PANEL =====
-    // Cánh trái
-    int left_wing[] = {
-        x - (int)(r * 0.3), y - (int)(r * 0.3), 
-        x - (int)(r * 1.5), y + (int)(r * 0.2), 
-        x - (int)(r * 1.5), y + (int)(r * 0.9), 
-        x - (int)(r * 0.3), y + (int)(r * 0.7), 
-        x - (int)(r * 0.3), y - (int)(r * 0.3)  
-    };
-    fillpoly(5, left_wing);
-
-    // Cánh ph?i
-    int right_wing[] = {
-        x + (int)(r * 0.3), y - (int)(r * 0.3), 
-        x + (int)(r * 1.5), y + (int)(r * 0.2), 
-        x + (int)(r * 1.5), y + (int)(r * 0.9), 
-        x + (int)(r * 0.3), y + (int)(r * 0.7), 
-        x + (int)(r * 0.3), y - (int)(r * 0.3)  
-    };
-    fillpoly(5, right_wing);
-
-    // ÐU?NG PANEL VÀ CHI TI?T
-    setcolor(BLUE); 
-    line(x - (int)(r * 0.4), y - (int)(r * 0.1), x - (int)(r * 1.4), y + (int)(r * 0.3));
-    line(x - (int)(r * 0.5), y + (int)(r * 0.1), x - (int)(r * 1.3), y + (int)(r * 0.4));
-    line(x - (int)(r * 0.6), y + (int)(r * 0.3), x - (int)(r * 1.2), y + (int)(r * 0.5));
-    line(x + (int)(r * 0.4), y - (int)(r * 0.1), x + (int)(r * 1.4), y + (int)(r * 0.3));
-    line(x + (int)(r * 0.5), y + (int)(r * 0.1), x + (int)(r * 1.3), y + (int)(r * 0.4));
-    line(x + (int)(r * 0.6), y + (int)(r * 0.3), x + (int)(r * 1.2), y + (int)(r * 0.5));
-    line(x - (int)(r * 0.2), y - (int)(r * 1.2), x + (int)(r * 0.2), y - (int)(r * 1.2));
-    line(x - (int)(r * 0.1), y - (int)(r * 1.0), x + (int)(r * 0.1), y - (int)(r * 1.0));
-    line(x - (int)(r * 0.1), y - (int)(r * 0.5), x + (int)(r * 0.1), y - (int)(r * 0.5));
-
-    // ===== 3. BU?NG LÁI =====
-    int cockpit_points[] = {
-        x, y - (int)(r * 0.9),           
-        x - (int)(r * 0.1), y - (int)(r * 0.8), 
-        x - (int)(r * 0.1), y - (int)(r * 0.6), 
-        x + (int)(r * 0.1), y - (int)(r * 0.6), 
-        x + (int)(r * 0.1), y - (int)(r * 0.8), 
-        x, y - (int)(r * 0.9)            
-    };
-    setfillstyle(SOLID_FILL, COCKPIT_FILL_COLOR);
-    fillpoly(6, cockpit_points);
-    setcolor(LIGHTCYAN);
-    line(x - (int)(r * 0.05), y - (int)(r * 0.8), x + (int)(r * 0.05), y - (int)(r * 0.8));
-    line(x - (int)(r * 0.05), y - (int)(r * 0.7), x + (int)(r * 0.05), y - (int)(r * 0.7));
-
-    // ===== 4. ÐUÔI VÀ ?NG X? PHÍA SAU =====
-    setfillstyle(SOLID_FILL, BODY_FILL_COLOR);
-    setcolor(LINE_COLOR);
-    
-    int left_tail[] = {
-        x - (int)(r * 0.1), y + (int)(r * 0.7), 
-        x - (int)(r * 0.6), y + (int)(r * 1.1), 
-        x - (int)(r * 0.2), y + (int)(r * 1.2), 
-        x - (int)(r * 0.1), y + (int)(r * 1.1)  
-    };
-    fillpoly(4, left_tail);
-    
-    int right_tail[] = {
-        x + (int)(r * 0.1), y + (int)(r * 0.7), 
-        x + (int)(r * 0.6), y + (int)(r * 1.1), 
-        x + (int)(r * 0.2), y + (int)(r * 1.2), 
-        x + (int)(r * 0.1), y + (int)(r * 1.1)  
-    };
-    fillpoly(4, right_tail);
-    
-    setcolor(BLUE);
-    line(x - (int)(r * 0.2), y + (int)(r * 0.8), x - (int)(r * 0.5), y + (int)(r * 1.0));
-    line(x + (int)(r * 0.2), y + (int)(r * 0.8), x + (int)(r * 0.5), y + (int)(r * 1.0));
-
-    // ?NG X? Ð?NG CO
-    bar(x - (int)(r * 0.15), y + (int)(r * 1.2), x - (int)(r * 0.05), y + (int)(r * 1.3));
-    bar(x + (int)(r * 0.05), y + (int)(r * 1.2), x + (int)(r * 0.15), y + (int)(r * 1.3));
-
-    // ===== 5. V? DU?I CÁNH VÀ VU KHÍ =====
-    setfillstyle(SOLID_FILL, POD_FILL_COLOR);
-    setcolor(BLUE);
-    int left_pod[] = {
-        x - (int)(r * 0.7), y + (int)(r * 0.4), 
-        x - (int)(r * 0.9), y + (int)(r * 0.5), 
-        x - (int)(r * 0.9), y + (int)(r * 0.8), 
-        x - (int)(r * 0.7), y + (int)(r * 0.9)  
-    };
-    fillpoly(4, left_pod);
-    
-    int right_pod[] = {
-        x + (int)(r * 0.7), y + (int)(r * 0.4), 
-        x + (int)(r * 0.9), y + (int)(r * 0.5), 
-        x + (int)(r * 0.9), y + (int)(r * 0.8), 
-        x + (int)(r * 0.7), y + (int)(r * 0.9)  
-    };
-    fillpoly(4, right_pod);
-
-    setcolor(LIGHTCYAN);
-    line(x - (int)(r * 0.8), y + (int)(r * 0.5), x - (int)(r * 0.8), y + (int)(r * 0.8));
-    line(x + (int)(r * 0.8), y + (int)(r * 0.5), x + (int)(r * 0.8), y + (int)(r * 0.8));
-
-    recursiveBoundaryFill(x - (int)(r * 0.75), y + (int)(r * 0.6), LIGHTCYAN, LINE_COLOR);
-
-    // ===== 6. HI?U ?NG L?A ? ÐUÔI (ANIMATED EXHAUST FIRE) =====
-    // T?o d? dài ng?u nhiên (+0 d?n +0.4r) d? t?o hi?u ?ng nh?p nháy liên t?c m?i frame
-    int flameLenL = (int)(r * 0.4) + rand() % (int)(r * 0.4 + 1);
-    int flameLenR = (int)(r * 0.4) + rand() % (int)(r * 0.4 + 1);
-
-    // L?a d?ng co TRÁI
-    // L?p ngoài (Màu Ð? Sáng / Cam)
-    setcolor(LIGHTRED);
-    setfillstyle(SOLID_FILL, LIGHTRED);
-    int fire_left_outer[] = {
-        x - (int)(r * 0.15), y + (int)(r * 1.3),
-        x - (int)(r * 0.10), y + (int)(r * 1.3) + flameLenL, // Ð?nh nh?n c?a l?a
-        x - (int)(r * 0.05), y + (int)(r * 1.3),
-        x - (int)(r * 0.15), y + (int)(r * 1.3)              // Ðóng vòng
-    };
-    fillpoly(4, fire_left_outer);
-
-    // L?p trong (Màu Vàng)
-    setcolor(YELLOW);
-    setfillstyle(SOLID_FILL, YELLOW);
-    int fire_left_inner[] = {
-        x - (int)(r * 0.13), y + (int)(r * 1.3),
-        x - (int)(r * 0.10), y + (int)(r * 1.3) + (int)(flameLenL * 0.6), 
-        x - (int)(r * 0.07), y + (int)(r * 1.3),
-        x - (int)(r * 0.13), y + (int)(r * 1.3)
-    };
-    fillpoly(4, fire_left_inner);
-
-    // L?a d?ng co PH?I
-    // L?p ngoài
-    setcolor(LIGHTRED);
-    setfillstyle(SOLID_FILL, LIGHTRED);
-    int fire_right_outer[] = {
-        x + (int)(r * 0.05), y + (int)(r * 1.3),
-        x + (int)(r * 0.10), y + (int)(r * 1.3) + flameLenR,
-        x + (int)(r * 0.15), y + (int)(r * 1.3),
-        x + (int)(r * 0.05), y + (int)(r * 1.3)
-    };
-    fillpoly(4, fire_right_outer);
-
-    // L?p trong
-    setcolor(YELLOW);
-    setfillstyle(SOLID_FILL, YELLOW);
-    int fire_right_inner[] = {
-        x + (int)(r * 0.07), y + (int)(r * 1.3),
-        x + (int)(r * 0.10), y + (int)(r * 1.3) + (int)(flameLenR * 0.6),
-        x + (int)(r * 0.13), y + (int)(r * 1.3),
-        x + (int)(r * 0.07), y + (int)(r * 1.3)
-    };
-    fillpoly(4, fire_right_inner);
-
-    // ===== KHIÊN WITH [ÁP D?NG THU?T TOÁN 2]: MIDPOINT CIRCLE =====
-    if (player.shieldTimer > 0) {
-        midpointCircle(x, y, r + 10, LIGHTBLUE);
-    }
-}
-
-// V? máy bay h? tr?
-void drawCompanions() {
-    for (int i = 0; i < MAX_COMPANIONS; i++) {
-        if (!companions[i].active) continue;
-
-        int x = companions[i].x;
-        int y = companions[i].y;
-        int r = companions[i].radius; // Bán kính (t? l?) c?a máy bay d?ng d?i
-
-        // ===== CÀI Ð?T MÀU S?C (Tone Xanh Lá) =====
-        const int BODY_FILL_COLOR = GREEN;
-        const int LINE_COLOR = LIGHTGREEN;
-        const int COCKPIT_FILL_COLOR = DARKGRAY; // Bu?ng lái màu xám d?m
-        const int POD_FILL_COLOR = LIGHTGREEN;
-
-        setcolor(LINE_COLOR);
-        setfillstyle(SOLID_FILL, BODY_FILL_COLOR);
-
-        // ===== 1. THÂN CHÍNH & MUI =====
-        int body_points[] = {
-            x, y - (int)(r * 1.6),            
-            x - (int)(r * 0.4), y - (int)(r * 1.3), 
-            x - (int)(r * 0.3), y - (int)(r * 0.4), 
-            x - (int)(r * 0.3), y + (int)(r * 0.8), 
-            x + (int)(r * 0.3), y + (int)(r * 0.8), 
-            x + (int)(r * 0.3), y - (int)(r * 0.4), 
-            x + (int)(r * 0.4), y - (int)(r * 1.3), 
-            x, y - (int)(r * 1.6)             
-        };
-        fillpoly(8, body_points);
-
-        // ===== 2. CÁNH TAM GIÁC =====
-        // Cánh trái
-        int left_wing[] = {
-            x - (int)(r * 0.3), y - (int)(r * 0.3), 
-            x - (int)(r * 1.5), y + (int)(r * 0.2), 
-            x - (int)(r * 1.5), y + (int)(r * 0.9), 
-            x - (int)(r * 0.3), y + (int)(r * 0.7), 
-            x - (int)(r * 0.3), y - (int)(r * 0.3)  
-        };
-        fillpoly(5, left_wing);
-
-        // Cánh ph?i
-        int right_wing[] = {
-            x + (int)(r * 0.3), y - (int)(r * 0.3), 
-            x + (int)(r * 1.5), y + (int)(r * 0.2), 
-            x + (int)(r * 1.5), y + (int)(r * 0.9), 
-            x + (int)(r * 0.3), y + (int)(r * 0.7), 
-            x + (int)(r * 0.3), y - (int)(r * 0.3)  
-        };
-        fillpoly(5, right_wing);
-
-        // ===== 3. BU?NG LÁI =====
-        int cockpit_points[] = {
-            x, y - (int)(r * 0.9),           
-            x - (int)(r * 0.1), y - (int)(r * 0.8), 
-            x - (int)(r * 0.1), y - (int)(r * 0.6), 
-            x + (int)(r * 0.1), y - (int)(r * 0.6), 
-            x + (int)(r * 0.1), y - (int)(r * 0.8), 
-            x, y - (int)(r * 0.9)            
-        };
-        setfillstyle(SOLID_FILL, COCKPIT_FILL_COLOR);
-        fillpoly(6, cockpit_points);
-
-        // ===== 4. ÐUÔI VÀ ?NG X? =====
-        setfillstyle(SOLID_FILL, BODY_FILL_COLOR);
-        setcolor(LINE_COLOR);
-        
-        int left_tail[] = {
-            x - (int)(r * 0.1), y + (int)(r * 0.7), 
-            x - (int)(r * 0.6), y + (int)(r * 1.1), 
-            x - (int)(r * 0.2), y + (int)(r * 1.2), 
-            x - (int)(r * 0.1), y + (int)(r * 1.1)  
-        };
-        fillpoly(4, left_tail);
-        
-        int right_tail[] = {
-            x + (int)(r * 0.1), y + (int)(r * 0.7), 
-            x + (int)(r * 0.6), y + (int)(r * 1.1), 
-            x + (int)(r * 0.2), y + (int)(r * 1.2), 
-            x + (int)(r * 0.1), y + (int)(r * 1.1)  
-        };
-        fillpoly(4, right_tail);
-
-        // ?ng x? (Bars)
-        bar(x - (int)(r * 0.15), y + (int)(r * 1.2), x - (int)(r * 0.05), y + (int)(r * 1.3));
-        bar(x + (int)(r * 0.05), y + (int)(r * 1.2), x + (int)(r * 0.15), y + (int)(r * 1.3));
-
-        // ===== 5. V? DU?I CÁNH (Vu khí/Ð?ng co ph?) =====
-        setfillstyle(SOLID_FILL, POD_FILL_COLOR);
-        int left_pod[] = {
-            x - (int)(r * 0.7), y + (int)(r * 0.4), 
-            x - (int)(r * 0.9), y + (int)(r * 0.5), 
-            x - (int)(r * 0.9), y + (int)(r * 0.8), 
-            x - (int)(r * 0.7), y + (int)(r * 0.9)  
-        };
-        fillpoly(4, left_pod);
-        
-        int right_pod[] = {
-            x + (int)(r * 0.7), y + (int)(r * 0.4), 
-            x + (int)(r * 0.9), y + (int)(r * 0.5), 
-            x + (int)(r * 0.9), y + (int)(r * 0.8), 
-            x + (int)(r * 0.7), y + (int)(r * 0.9)  
-        };
-        fillpoly(4, right_pod);
-
-        // ===== 6. HI?U ?NG L?A (Ðon gi?n hóa cho d?ng d?i) =====
-        // L?a ng?u nhiên ng?n hon máy bay chính m?t chút d? phù h?p t? l?
-        int flameLen = (int)(r * 0.3) + rand() % (int)(r * 0.2 + 1);
-        
-        setcolor(LIGHTRED);
-        setfillstyle(SOLID_FILL, YELLOW); // Lõi màu vàng, vi?n d?
-        
-        // L?a trái
-        int fire_left[] = {
-            x - (int)(r * 0.15), y + (int)(r * 1.3),
-            x - (int)(r * 0.10), y + (int)(r * 1.3) + flameLen,
-            x - (int)(r * 0.05), y + (int)(r * 1.3),
-            x - (int)(r * 0.15), y + (int)(r * 1.3) // Ðóng vòng
-        };
-        fillpoly(4, fire_left);
-
-        // L?a ph?i
-        int fire_right[] = {
-            x + (int)(r * 0.05), y + (int)(r * 1.3),
-            x + (int)(r * 0.10), y + (int)(r * 1.3) + flameLen,
-            x + (int)(r * 0.15), y + (int)(r * 1.3),
-            x + (int)(r * 0.05), y + (int)(r * 1.3)
-        };
-        fillpoly(4, fire_right);
-    }
-}
-
-// V? d?n
-void drawBullets() {
-    // T? d?ng quay v? d?n thu?ng n?u h?t th?i gian hi?u l?c
-    if (player.currentFruitType == 1 && player.fireRateBoostTimer <= 0) player.currentFruitType = 0;
-    if (player.currentFruitType == 5 && player.damageBoostTimer <= 0) player.currentFruitType = 0;
-
-    for (int i = 0; i < MAX_BULLETS; i++) {
-        if (bullets[i].active) {
-            int bx = bullets[i].x;
-            int by = bullets[i].y;
-
-            if (bullets[i].isEnemy) {
-                // --- Ð?N Ð?CH B?N RA (TRÒN, Ð?) ---
-                int enemyBulletRadius = 5;
-                setcolor(WHITE); // Vi?n tr?ng
-                setfillstyle(SOLID_FILL, LIGHTRED); // Lõi d?
-                fillellipse(bx, by, enemyBulletRadius, enemyBulletRadius);
-                circle(bx, by, enemyBulletRadius);
-            } 
-            else {
-                // --- Ð?N NGU?I CHOI ---
-                int radius = player.bulletSizeTimer > 0 ? currentBulletSize * 1.5 : currentBulletSize;
-
-                if (player.currentFruitType == 1) { 
-                    // CHU?I
-                    setcolor(YELLOW);
-                    setfillstyle(SOLID_FILL, YELLOW);
-                    int w = radius * 2.0; 
-                    int h = radius * 1.2; 
-                    for (float t = -1.57; t <= 1.57; t += 0.15) {
-                        int cx = bx + sin(t) * w;
-                        int cy = by + cos(t) * h;
-                        int r = (int)((radius * 0.9) * (1.0 - fabs(t) / 1.57));
-                        if (r < 1) r = 1;
-                        fillellipse(cx, cy, r, r);
-                    }
-                    setcolor(BROWN);
-                    setfillstyle(SOLID_FILL, BROWN);
-                    int numSize = radius / 3;
-                    if (numSize < 1) numSize = 1;
-                    fillellipse(bx + w, by, numSize, numSize);
-                } 
-                else if (player.currentFruitType == 5) { 
-                    // TÁO
-                    int r_apple = radius * 1.6; 
-                    setcolor(LIGHTRED);
-                    setfillstyle(SOLID_FILL, LIGHTRED);
-                    fillellipse(bx - r_apple/2 + 1, by, r_apple/2 + 2, r_apple); 
-                    fillellipse(bx + r_apple/2 - 1, by, r_apple/2 + 2, r_apple); 
-                    setcolor(BROWN);
-                    line(bx, by - r_apple + 2, bx, by - r_apple - 8); 
-                    setcolor(LIGHTGREEN);
-                    setfillstyle(SOLID_FILL, LIGHTGREEN);
-                    fillellipse(bx + r_apple/2 + 1, by - r_apple - 4, r_apple/2, r_apple/3 + 1); 
-                } 
-                else { 
-                    // Ð?N THU?NG
-                    setcolor(WHITE);
-                    setfillstyle(SOLID_FILL, bullets[i].highDamage ? RED : YELLOW);
-                    fillellipse(bx, by, radius, radius);
-                }
-            }
-        }
-    }
-}
-
-// V? k? d?ch
-void drawEnemies() {
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        if (!enemies[i].active) continue;
-
-        int size = enemies[i].radius;
-        float angle = atan2(
-            player.y - enemies[i].y,
-            player.x - enemies[i].x
-        );
-
-        switch (enemies[i].type) {
-
-        case 1: // Drone
-            setcolor(LIGHTRED);
-            setfillstyle(SOLID_FILL, RED);
-
-            rectangle(
-                enemies[i].x - size,
-                enemies[i].y - size,
-                enemies[i].x + size,
-                enemies[i].y + size
-            );
-
-            floodfill(enemies[i].x, enemies[i].y, LIGHTRED);
-
-            setcolor(WHITE);
-
-            rectangle(
-                enemies[i].x - size,
-                enemies[i].y - size,
-                enemies[i].x + size,
-                enemies[i].y + size
-            );
-
-            setfillstyle(SOLID_FILL, WHITE);
-            fillellipse(enemies[i].x, enemies[i].y, 5, 5);
-            break;
-
-        case 2: // Scout
-        {
-            setcolor(LIGHTGREEN);
-            setfillstyle(SOLID_FILL, GREEN);
-
-            int points[8];
-
-            points[0] = enemies[i].x + size * cos(angle);
-            points[1] = enemies[i].y + size * sin(angle);
-
-            points[2] = enemies[i].x + size * cos(angle + 2.4);
-            points[3] = enemies[i].y + size * sin(angle + 2.4);
-
-            points[4] = enemies[i].x + size * cos(angle - 2.4);
-            points[5] = enemies[i].y + size * sin(angle - 2.4);
-
-            points[6] = points[0];
-            points[7] = points[1];
-
-            fillpoly(4, points);
-
-            setcolor(WHITE);
-            drawpoly(4, points);
-
-            setcolor(YELLOW);
-
-            line(
-                enemies[i].x,
-                enemies[i].y,
-                enemies[i].x - size * cos(angle),
-                enemies[i].y - size * sin(angle)
-            );
-
-            break;
-        }
-
-        case 3: // Tank
-        {
-            setcolor(YELLOW);
-            setfillstyle(SOLID_FILL, LIGHTGRAY);
-
-            int points_tank[14];
-
-            for (int j = 0; j < 6; j++) {
-                points_tank[j * 2] =
-                    enemies[i].x + size * cos(j * PI / 3);
-
-                points_tank[j * 2 + 1] =
-                    enemies[i].y + size * sin(j * PI / 3);
-            }
-
-            points_tank[12] = points_tank[0];
-            points_tank[13] = points_tank[1];
-
-            fillpoly(7, points_tank);
-
-            setcolor(WHITE);
-            drawpoly(7, points_tank);
-
-            setcolor(LIGHTCYAN);
-            circle(enemies[i].x, enemies[i].y, size * 0.7);
-
-            break;
-        }
-
-        case 4: // Chaser
-            setcolor(MAGENTA);
-            setfillstyle(SOLID_FILL, LIGHTMAGENTA);
-
-            fillellipse(
-                enemies[i].x,
-                enemies[i].y,
-                size,
-                size
-            );
-
-            setcolor(WHITE);
-            circle(enemies[i].x, enemies[i].y, size);
-
-            setcolor(LIGHTMAGENTA);
-            circle(enemies[i].x, enemies[i].y, size * 1.2);
-
-            break;
-
-        case 5: // Sniper
-        {
-            setcolor(WHITE);
-            setfillstyle(SOLID_FILL, LIGHTCYAN);
-
-            int points_sniper[12];
-
-            for (int j = 0; j < 5; j++) {
-                points_sniper[j * 2] =
-                    enemies[i].x + size * cos(j * 2 * PI / 5);
-
-                points_sniper[j * 2 + 1] =
-                    enemies[i].y + size * sin(j * 2 * PI / 5);
-            }
-
-            points_sniper[10] = points_sniper[0];
-            points_sniper[11] = points_sniper[1];
-
-            fillpoly(6, points_sniper);
-
-            setcolor(WHITE);
-            drawpoly(6, points_sniper);
-
-            setfillstyle(
-                SOLID_FILL,
-                (rand() % 2) ? WHITE : LIGHTCYAN
-            );
-
-            fillellipse(enemies[i].x, enemies[i].y, 5, 5);
-
-            break;
-        }
-
-        case 6: // Bomber
-            setcolor(RED);
-            setfillstyle(SOLID_FILL, DARKGRAY);
-
-            fillellipse(
-                enemies[i].x,
-                enemies[i].y,
-                size,
-                size * 0.7
-            );
-
-            setcolor(WHITE);
-            circle(enemies[i].x, enemies[i].y, size);
-
-            break;
-
-        case 7: // Spinner
-        {
-            setcolor(LIGHTBLUE);
-            setfillstyle(SOLID_FILL, BLUE);
-
-            int points_spinner[10];
-
-            for (int j = 0; j < 4; j++) {
-                points_spinner[j * 2] =
-                    enemies[i].x +
-                    size * cos(j * PI / 2 + enemies[i].zigzagTimer);
-
-                points_spinner[j * 2 + 1] =
-                    enemies[i].y +
-                    size * sin(j * PI / 2 + enemies[i].zigzagTimer);
-            }
-
-            points_spinner[8] = points_spinner[0];
-            points_spinner[9] = points_spinner[1];
-
-            fillpoly(5, points_spinner);
-
-            setcolor(WHITE);
-            drawpoly(5, points_spinner);
-
-            break;
-        }
-
-        case 8: // Stealth
-        {
-            setcolor(LIGHTGRAY);
-            setfillstyle(SOLID_FILL, DARKGRAY);
-
-            int points_stealth[8];
-
-            points_stealth[0] =
-                enemies[i].x + size * cos(angle + 0.5);
-
-            points_stealth[1] =
-                enemies[i].y + size * sin(angle + 0.5);
-
-            points_stealth[2] =
-                enemies[i].x + size * cos(angle + 3.14);
-
-            points_stealth[3] =
-                enemies[i].y + size * sin(angle + 3.14);
-
-            points_stealth[4] =
-                enemies[i].x + size * cos(angle - 0.5);
-
-            points_stealth[5] =
-                enemies[i].y + size * sin(angle - 0.5);
-
-            points_stealth[6] = points_stealth[0];
-            points_stealth[7] = points_stealth[1];
-
-            fillpoly(4, points_stealth);
-
-            setcolor(WHITE);
-            drawpoly(4, points_stealth);
-
-            break;
-        }
-
-        case 9: // Kamikaze
-            setcolor(YELLOW);
-            setfillstyle(SOLID_FILL, LIGHTRED);
-
-            fillellipse(
-                enemies[i].x,
-                enemies[i].y,
-                size,
-                size
-            );
-
-            setcolor(WHITE);
-            circle(enemies[i].x, enemies[i].y, size);
-
-            break;
-
-        case 10: // Dodger
-        {
-            setcolor(LIGHTCYAN);
-            setfillstyle(SOLID_FILL, CYAN);
-
-            int points_dodger[10];
-
-            for (int j = 0; j < 4; j++) {
-                points_dodger[j * 2] =
-                    enemies[i].x + size * cos(j * PI / 2);
-
-                points_dodger[j * 2 + 1] =
-                    enemies[i].y + size * sin(j * PI / 2);
-            }
-
-            points_dodger[8] = points_dodger[0];
-            points_dodger[9] = points_dodger[1];
-
-            fillpoly(5, points_dodger);
-
-            setcolor(WHITE);
-            drawpoly(5, points_dodger);
-
-            break;
-        }
-
-        case 11: // Blaster
-            setcolor(MAGENTA);
-            setfillstyle(SOLID_FILL, LIGHTMAGENTA);
-
-            rectangle(
-                enemies[i].x - size,
-                enemies[i].y - size * 0.7,
-                enemies[i].x + size,
-                enemies[i].y + size * 0.7
-            );
-
-            floodfill(enemies[i].x, enemies[i].y, MAGENTA);
-
-            setcolor(WHITE);
-
-            rectangle(
-                enemies[i].x - size,
-                enemies[i].y - size * 0.7,
-                enemies[i].x + size,
-                enemies[i].y + size * 0.7
-            );
-
-            break;
-
-        case 12: // Swarmer
-            setcolor(GREEN);
-            setfillstyle(SOLID_FILL, LIGHTGREEN);
-
-            fillellipse(
-                enemies[i].x,
-                enemies[i].y,
-                size * 0.7,
-                size * 0.7
-            );
-
-            setcolor(WHITE);
-            circle(enemies[i].x, enemies[i].y, size * 0.7);
-
-            break;
-
-        case 13: // Phantom
-        {
-            setcolor(LIGHTBLUE);
-            setfillstyle(SOLID_FILL, BLUE);
-
-            int points_phantom[12];
-
-            for (int j = 0; j < 5; j++) {
-                points_phantom[j * 2] =
-                    enemies[i].x +
-                    size * cos(j * 2 * PI / 5 + enemies[i].zigzagTimer);
-
-                points_phantom[j * 2 + 1] =
-                    enemies[i].y +
-                    size * sin(j * 2 * PI / 5 + enemies[i].zigzagTimer);
-            }
-
-            points_phantom[10] = points_phantom[0];
-            points_phantom[11] = points_phantom[1];
-
-            fillpoly(6, points_phantom);
-
-            setcolor(WHITE);
-            drawpoly(6, points_phantom);
-
-            break;
-        }
-
-        case 14: // Charger
-        {
-            setcolor(RED);
-            setfillstyle(SOLID_FILL, LIGHTRED);
-
-            int points_charger[8];
-
-            points_charger[0] =
-                enemies[i].x + size * cos(angle);
-
-            points_charger[1] =
-                enemies[i].y + size * sin(angle);
-
-            points_charger[2] =
-                enemies[i].x + size * cos(angle + 2.8);
-
-            points_charger[3] =
-                enemies[i].y + size * sin(angle + 2.8);
-
-            points_charger[4] =
-                enemies[i].x + size * cos(angle - 2.8);
-
-            points_charger[5] =
-                enemies[i].y + size * sin(angle - 2.8);
-
-            points_charger[6] = points_charger[0];
-            points_charger[7] = points_charger[1];
-
-            fillpoly(4, points_charger);
-
-            setcolor(WHITE);
-            drawpoly(4, points_charger);
-
-            break;
-        }
-
-        case 15: // Sniper Elite
-        {
-            setcolor(CYAN);
-            setfillstyle(SOLID_FILL, LIGHTCYAN);
-
-            int points_elite[14];
-
-            for (int j = 0; j < 6; j++) {
-                points_elite[j * 2] =
-                    enemies[i].x + size * cos(j * PI / 3);
-
-                points_elite[j * 2 + 1] =
-                    enemies[i].y + size * sin(j * PI / 3);
-            }
-
-            points_elite[12] = points_elite[0];
-            points_elite[13] = points_elite[1];
-
-            fillpoly(7, points_elite);
-
-            setcolor(WHITE);
-            drawpoly(7, points_elite);
-
-            break;
-        }
-
-        case 16: // Boss 1: Circle Shooter
-            setcolor(YELLOW);
-            setfillstyle(SOLID_FILL, YELLOW);
-
-            fillellipse(
-                enemies[i].x,
-                enemies[i].y,
-                size,
-                size
-            );
-
-            setcolor(WHITE);
-            circle(enemies[i].x, enemies[i].y, size);
-
-            setcolor(RED);
-            circle(enemies[i].x, enemies[i].y, size * 0.8);
-
-            break;
-
-        case 17: // Boss 2: Grid Shooter
-            setcolor(MAGENTA);
-            setfillstyle(SOLID_FILL, LIGHTMAGENTA);
-
-            rectangle(
-                enemies[i].x - size,
-                enemies[i].y - size,
-                enemies[i].x + size,
-                enemies[i].y + size
-            );
-
-            floodfill(enemies[i].x, enemies[i].y, MAGENTA);
-
-            setcolor(WHITE);
-
-            rectangle(
-                enemies[i].x - size,
-                enemies[i].y - size,
-                enemies[i].x + size,
-                enemies[i].y + size
-            );
-
-            setcolor(YELLOW);
-            circle(enemies[i].x, enemies[i].y, size * 0.5);
-
-            break;
-
-        case 18: // Boss 3: Summoner
-        {
-            setcolor(CYAN);
-            setfillstyle(SOLID_FILL, LIGHTCYAN);
-
-            int points_boss3[16];
-
-            for (int j = 0; j < 7; j++) {
-                points_boss3[j * 2] =
-                    enemies[i].x + size * cos(j * 2 * PI / 7);
-
-                points_boss3[j * 2 + 1] =
-                    enemies[i].y + size * sin(j * 2 * PI / 7);
-            }
-
-            points_boss3[14] = points_boss3[0];
-            points_boss3[15] = points_boss3[1];
-
-            fillpoly(8, points_boss3);
-
-            setcolor(WHITE);
-            drawpoly(8, points_boss3);
-
-            break;
-        }
-
-        case 19: // Boss 4: Spiral Shooter
-            setcolor(RED);
-            setfillstyle(SOLID_FILL, LIGHTRED);
-
-            fillellipse(
-                enemies[i].x,
-                enemies[i].y,
-                size,
-                size * 0.8
-            );
-
-            setcolor(WHITE);
-            circle(enemies[i].x, enemies[i].y, size);
-
-            setcolor(YELLOW);
-            circle(enemies[i].x, enemies[i].y, size * 0.6);
-
-            break;
-        }
-    }
-}
-
-// V? v?t ph?m
-void drawPowerUps() {
-    for (int i = 0; i < MAX_POWERUPS; i++) {
-        if (!powerUps[i].active)
-            continue;
-
-        int px = powerUps[i].x;
-        int py = powerUps[i].y;
-
-        switch (powerUps[i].type) {
-            case 1: // Fire Rate -> Hình Chu?i M?m M?i
-            {
-                setcolor(YELLOW);
-                setfillstyle(SOLID_FILL, YELLOW);
-                for (float t = -1.57; t <= 1.57; t += 0.15) {
-                    int cx = px + sin(t) * 14; 
-                    int cy = py + cos(t) * 8;  
-                    int r = (int)(6 * (1.0 - fabs(t) / 1.57)); 
-                    if (r < 1) r = 1;
-                    fillellipse(cx, cy, r, r);
-                }
-                setcolor(BROWN);
-                setfillstyle(SOLID_FILL, BROWN);
-                fillellipse(px + 14, py, 2, 2);
-                break;
-            }
-
-            case 2: // Speed -> Hình Tia Ch?p (Lightning Bolt)
-            {
-                setcolor(LIGHTCYAN);
-                setfillstyle(SOLID_FILL, LIGHTCYAN);
-                int lightning[14] = {
-                    px + 2, py - 8,
-                    px - 6, py + 2,
-                    px,     py + 2,
-                    px - 2, py + 8,
-                    px + 6, py - 2,
-                    px,     py - 2,
-                    px + 2, py - 8
-                };
-                fillpoly(7, lightning);
-                break;
-            }
-
-            case 3: // Life -> Hình Trái Tim (Heart)
-            {
-                setcolor(LIGHTRED);
-                setfillstyle(SOLID_FILL, LIGHTRED);
-                // 2 n?a vòng tròn ? trên
-                fillellipse(px - 4, py - 3, 4, 4); 
-                fillellipse(px + 4, py - 3, 4, 4); 
-                // Hình tam giác nh?n ? du?i
-                int heart_bottom[8] = {
-                    px - 8, py - 2, 
-                    px + 8, py - 2, 
-                    px,     py + 7, 
-                    px - 8, py - 2
-                };
-                fillpoly(4, heart_bottom);
-                break;
-            }
-
-            case 4: // Shield -> Hình Chi?c Khiên (Shield shape)
-            {
-                setcolor(LIGHTBLUE);
-                setfillstyle(SOLID_FILL, LIGHTBLUE);
-                int shield[12] = {
-                    px - 7, py - 6,  // Góc trên trái
-                    px + 7, py - 6,  // Góc trên ph?i
-                    px + 7, py + 2,  // C?nh ph?i
-                    px,     py + 9,  // Mui nh?n du?i
-                    px - 7, py + 2,  // C?nh trái
-                    px - 7, py - 6
-                };
-                fillpoly(6, shield);
-                
-                // V? ch? th?p tr?ng ? gi?a khiên
-                setcolor(WHITE);
-                line(px, py - 4, px, py + 2);
-                line(px - 3, py - 1, px + 3, py - 1);
-                break;
-            }
-
-            case 5: // Damage Boost -> Hình Táo
-            {
-                setcolor(LIGHTRED);
-                setfillstyle(SOLID_FILL, LIGHTRED);
-                fillellipse(px - 6, py, 8, 10); 
-                fillellipse(px + 6, py, 8, 10); 
-                
-                setcolor(BROWN);
-                line(px, py - 8, px, py - 16);
-                
-                setcolor(LIGHTGREEN);
-                setfillstyle(SOLID_FILL, LIGHTGREEN);
-                fillellipse(px + 7, py - 12, 5, 3);
-                break;
-            }
-            
-			case 6: // Bullet Size -> Hình Kính Lúp (Magnifying Glass) soi viên d?n
-            {
-                // 1. V? tròng kính lúp (màu xanh ng?c sáng)
-                setcolor(WHITE);
-                setfillstyle(SOLID_FILL, LIGHTCYAN);
-                fillellipse(px - 3, py - 3, 6, 6);
-                
-                // 2. V? viên d?n màu vàng ? tâm kính lúp (?n d? vi?c d?n du?c phóng to)
-                setcolor(YELLOW);
-                setfillstyle(SOLID_FILL, YELLOW);
-                fillellipse(px - 3, py - 3, 2, 2);
-                
-                // 3. V? tay c?m c?a kính lúp (màu nâu, chéo xu?ng góc du?i bên ph?i)
-                setcolor(BROWN);
-                // V? 3 du?ng th?ng sát nhau d? t?o d? dày cho tay c?m
-                line(px + 1, py + 1, px + 7, py + 7);
-                line(px + 2, py + 1, px + 8, py + 7);
-                line(px + 1, py + 2, px + 7, py + 8);
-                break;
-            }
-
-            case 7: // Ultimate Charge -> Hình Ngôi Sao 5 Cánh (Star) - Ð?i t? case 8
-            {
-                setcolor(LIGHTMAGENTA);
-                setfillstyle(SOLID_FILL, LIGHTMAGENTA);
-                int star[22];
-                // Tính toán t?a d? 10 d?nh c?a ngôi sao
-                for (int j = 0; j < 10; j++) {
-                    float angle = j * PI / 5 - PI / 2;
-                    int r = (j % 2 == 0) ? 10 : 4; // Ð?nh ngoài xa, d?nh trong g?n
-                    star[j * 2] = px + cos(angle) * r;
-                    star[j * 2 + 1] = py + sin(angle) * r;
-                }
-                star[20] = star[0]; 
-                star[21] = star[1];
-                fillpoly(11, star);
-                break;
-            }
-            case 8: // Companion Boost -> Hình máy bay d?ng d?i thu nh? có vòng tròn bao quanh
-            {
-                int r = 6; // Ðã thu nh? bán kính t? l? t? 10 xu?ng 6
-
-                // ===== CÀI Ð?T MÀU S?C =====
-                const int BODY_FILL_COLOR = GREEN;
-                const int LINE_COLOR = LIGHTGREEN;
-                const int COCKPIT_FILL_COLOR = DARKGRAY;
-                const int POD_FILL_COLOR = LIGHTGREEN;
-
-                setcolor(LINE_COLOR);
-                setfillstyle(SOLID_FILL, BODY_FILL_COLOR);
-
-                // ===== 1. THÂN CHÍNH & MUI =====
-                int body_points[] = {
-                    px, py - (int)(r * 1.6),            
-                    px - (int)(r * 0.4), py - (int)(r * 1.3), 
-                    px - (int)(r * 0.3), py - (int)(r * 0.4), 
-                    px - (int)(r * 0.3), py + (int)(r * 0.8), 
-                    px + (int)(r * 0.3), py + (int)(r * 0.8), 
-                    px + (int)(r * 0.3), py - (int)(r * 0.4), 
-                    px + (int)(r * 0.4), py - (int)(r * 1.3), 
-                    px, py - (int)(r * 1.6)              
-                };
-                fillpoly(8, body_points);
-
-                // ===== 2. CÁNH TAM GIÁC =====
-                int left_wing[] = {
-                    px - (int)(r * 0.3), py - (int)(r * 0.3), 
-                    px - (int)(r * 1.5), py + (int)(r * 0.2), 
-                    px - (int)(r * 1.5), py + (int)(r * 0.9), 
-                    px - (int)(r * 0.3), py + (int)(r * 0.7), 
-                    px - (int)(r * 0.3), py - (int)(r * 0.3)  
-                };
-                fillpoly(5, left_wing);
-
-                int right_wing[] = {
-                    px + (int)(r * 0.3), py - (int)(r * 0.3), 
-                    px + (int)(r * 1.5), py + (int)(r * 0.2), 
-                    px + (int)(r * 1.5), py + (int)(r * 0.9), 
-                    px + (int)(r * 0.3), py + (int)(r * 0.7), 
-                    px + (int)(r * 0.3), py - (int)(r * 0.3)  
-                };
-                fillpoly(5, right_wing);
-
-                // ===== 3. BU?NG LÁI =====
-                int cockpit_points[] = {
-                    px, py - (int)(r * 0.9),            
-                    px - (int)(r * 0.1), py - (int)(r * 0.8), 
-                    px - (int)(r * 0.1), py - (int)(r * 0.6), 
-                    px + (int)(r * 0.1), py - (int)(r * 0.6), 
-                    px + (int)(r * 0.1), py - (int)(r * 0.8), 
-                    px, py - (int)(r * 0.9)             
-                };
-                setfillstyle(SOLID_FILL, COCKPIT_FILL_COLOR);
-                fillpoly(6, cockpit_points);
-
-                // ===== 4. ÐUÔI VÀ ?NG X? =====
-                setfillstyle(SOLID_FILL, BODY_FILL_COLOR);
-                setcolor(LINE_COLOR);
-                
-                int left_tail[] = {
-                    px - (int)(r * 0.1), py + (int)(r * 0.7), 
-                    px - (int)(r * 0.6), py + (int)(r * 1.1), 
-                    px - (int)(r * 0.2), py + (int)(r * 1.2), 
-                    px - (int)(r * 0.1), py + (int)(r * 1.1)  
-                };
-                fillpoly(4, left_tail);
-                
-                int right_tail[] = {
-                    px + (int)(r * 0.1), py + (int)(r * 0.7), 
-                    px + (int)(r * 0.6), py + (int)(r * 1.1), 
-                    px + (int)(r * 0.2), py + (int)(r * 1.2), 
-                    px + (int)(r * 0.1), py + (int)(r * 1.1)  
-                };
-                fillpoly(4, right_tail);
-
-                bar(px - (int)(r * 0.15), py + (int)(r * 1.2), px - (int)(r * 0.05), py + (int)(r * 1.3));
-                bar(px + (int)(r * 0.05), py + (int)(r * 1.2), px + (int)(r * 0.15), py + (int)(r * 1.3));
-
-                // ===== 5. VU KHÍ DU?I CÁNH =====
-                setfillstyle(SOLID_FILL, POD_FILL_COLOR);
-                int left_pod[] = {
-                    px - (int)(r * 0.7), py + (int)(r * 0.4), 
-                    px - (int)(r * 0.9), py + (int)(r * 0.5), 
-                    px - (int)(r * 0.9), py + (int)(r * 0.8), 
-                    px - (int)(r * 0.7), py + (int)(r * 0.9)  
-                };
-                fillpoly(4, left_pod);
-                
-                int right_pod[] = {
-                    px + (int)(r * 0.7), py + (int)(r * 0.4), 
-                    px + (int)(r * 0.9), py + (int)(r * 0.5), 
-                    px + (int)(r * 0.9), py + (int)(r * 0.8), 
-                    px + (int)(r * 0.7), py + (int)(r * 0.9)  
-                };
-                fillpoly(4, right_pod);
-
-                // ===== 6. HI?U ?NG L?A =====
-                int flameLen = (int)(r * 0.3) + rand() % ((int)(r * 0.2) + 1);
-                
-                setcolor(LIGHTRED);
-                setfillstyle(SOLID_FILL, YELLOW);
-                
-                int fire_left[] = {
-                    px - (int)(r * 0.15), py + (int)(r * 1.3),
-                    px - (int)(r * 0.10), py + (int)(r * 1.3) + flameLen,
-                    px - (int)(r * 0.05), py + (int)(r * 1.3),
-                    px - (int)(r * 0.15), py + (int)(r * 1.3) 
-                };
-                fillpoly(4, fire_left);
-
-                int fire_right[] = {
-                    px + (int)(r * 0.05), py + (int)(r * 1.3),
-                    px + (int)(r * 0.10), py + (int)(r * 1.3) + flameLen,
-                    px + (int)(r * 0.15), py + (int)(r * 1.3),
-                    px + (int)(r * 0.05), py + (int)(r * 1.3)
-                };
-                fillpoly(4, fire_right);
-                
-                // ===== 7. VÒNG TRÒN TR?NG BAO QUANH =====
-                setcolor(WHITE);
-                circle(px, py, 14); // Bán kính 14 bao tr?n v?n chi?c máy bay ? bên trong
-                
-                break;
-            }
-        }
-    }
-}
-// V? h?t v? n?
-void drawParticles() {
-    for (int i = 0; i < MAX_PARTICLES; i++) {
-        if (particles[i].active) {
-            if (particles[i].type == 1) {
-                // V? SHOCKWAVE (Vòng sáng lan t?a)
-                setcolor(particles[i].life > 6 ? WHITE : LIGHTCYAN); // Ð?i màu khi m? d?n
-                circle(particles[i].x, particles[i].y, (int)particles[i].size);
-                circle(particles[i].x, particles[i].y, (int)particles[i].size - 1); // Cho vi?n dày hon
-            } else {
-                // V? TIA L?A
-                int col = particles[i].color;
-                
-                // Khi g?n tàn (life th?p), tia l?a ngu?i di và bi?n thành khói
-                if (particles[i].life < particles[i].maxLife / 3) {
-                    col = DARKGRAY; // Khói
-                } else if (particles[i].life < particles[i].maxLife / 2 && col == WHITE) {
-                    col = YELLOW;   // Tr?ng ngu?i thành vàng
-                }
-                
-                setcolor(col);
-                setfillstyle(SOLID_FILL, col);
-                
-                // Bán kính h?t teo nh? d?n theo th?i gian s?ng
-                int r = (int)(particles[i].size * ((float)particles[i].life / particles[i].maxLife));
-                if (r < 1) r = 1;
-                
-                // V? h?t d?c
-                fillellipse(particles[i].x, particles[i].y, r, r);
-            }
-        }
-    }
-}
-
-// V? n?n
-void drawBackground() {
-    cleardevice();
-    setcolor(WHITE);
-    for (int i = 0; i < MAX_STARS; i++) {
-        circle(stars[i].x, stars[i].y, stars[i].radius);
-    }
-}
-
-// C?p nh?t ngôi sao
+// CHUC NANG CAP NHAT (UPDATE LOGIC)
 void updateStars() {
     for (int i = 0; i < MAX_STARS; i++) {
         stars[i].y += stars[i].speed;
@@ -1548,216 +233,113 @@ void updateStars() {
     }
 }
 
-void drawLaser() {
-    if (player.laserTimer > 0) {
-        int x = player.x;
-        int y_top = 0; // Laser b?n h?t màn hình lên trên
-        int y_bottom = player.y - (int)(player.radius * 1.6);
-        int width = 30; // Ð? r?ng tia laser
-
-        // 1. V? qu?ng sáng d? phía ngoài (nh?p nháy)
-        setfillstyle(SOLID_FILL, (rand() % 2) ? RED : LIGHTRED);
-        bar(x - width/2, y_top, x + width/2, y_bottom);
-
-        // 2. V? lõi vàng ? gi?a
-        setfillstyle(SOLID_FILL, YELLOW);
-        bar(x - width/4, y_top, x + width/4, y_bottom);
-
-        // 3. V? tâm tr?ng siêu nhi?t
-        setcolor(WHITE);
-        line(x, y_top, x, y_bottom);
-        
-        // Hi?u ?ng tóe l?a ? mui tàu
-        setcolor(LIGHTRED);
-        circle(x, y_bottom, rand() % 15 + 5);
-    }
-}
-
 void updatePlayer() {
-    if (!gameOver && !gameWon) {
-        // ===== C? Ð?NH V? TRÍ Y & HU?NG SÚNG =====
-        player.lastAngle = -PI / 2;  // Luôn hu?ng lên
-        player.y = SCREEN_HEIGHT - player.radius - 20; 
-        player.dy = 0;
-        player.targetDy = 0;
+    // Co dinh vi tri Y & huong ban
+    player.lastAngle = -PI / 2;  
+    player.y = SCREEN_HEIGHT - player.radius - 20; 
+    player.dy = 0;
 
-        // ===== ÐI?U KHI?N NGANG (S?A L?I KH?NG & K?T PHÍM UNIKEY) =====
-        player.dx = 0; // Ð?t m?c d?nh là 0 tru?c khi ki?m tra phím
+    // Dieu khien ngang (Su dung ma Hex de tranh loi Unikey)
+    player.dx = 0; 
+    if (GetAsyncKeyState(0x41) & 0x8000) player.dx -= currentPlayerSpeed; // Phim A
+    if (GetAsyncKeyState(0x44) & 0x8000) player.dx += currentPlayerSpeed; // Phim D
 
-        // S? d?ng mã Hex (0x41 = A, 0x44 = D) d? tránh l?i k?t phím do b? gõ Ti?ng Vi?t
-        if (GetAsyncKeyState(0x41) & 0x8000) {
-            player.dx -= currentPlayerSpeed;
+    // Cap nhat toa do
+    player.x += player.dx; 
+
+    // Gioi han man hinh
+    if (player.x < player.radius) player.x = player.radius;
+    if (player.x > SCREEN_WIDTH - player.radius) player.x = SCREEN_WIDTH - player.radius;
+
+    // Ban dan (Chuot trai)
+    if (GetAsyncKeyState(VK_LBUTTON) & 0x8000) {
+        clock_t now = clock();
+        if ((now - lastShotTime) * 1000 / CLOCKS_PER_SEC >= currentShootDelay) {
+            shootBullet();      
+            lastShotTime = now;
         }
-        if (GetAsyncKeyState(0x44) & 0x8000) {
-            player.dx += currentPlayerSpeed;
+    }
+
+    // He thong Ultimate (Tia Laser)
+    if (player.laserTimer <= 0) {
+        if (player.ultimateTimer < ULTIMATE_COOLDOWN) {
+            player.ultimateTimer += 0.015;
         }
-
-        if (GetAsyncKeyState(VK_ESCAPE) & 0x8000)
-            exit(0);
-
-        // ===== C?P NH?T V? TRÍ =====
-        player.x += player.dx; 
-
-        // ===== GI? PLAYER TRONG MÀN HÌNH =====
-        if (player.x < player.radius)
-            player.x = player.radius;
-
-        if (player.x > SCREEN_WIDTH - player.radius)
-            player.x = SCREEN_WIDTH - player.radius;
-
-        // ===== B?N Ð?N (CHU?T TRÁI) =====
-        if (GetAsyncKeyState(VK_LBUTTON) & 0x8000) {
-            clock_t now = clock();
-            if ((now - lastShotTime) * 1000 / CLOCKS_PER_SEC >= currentShootDelay) {
-                shootBullet();      // Ð?n s? b?n lên trên
-                lastShotTime = now;
-            }
+        if (isLaserSoundPlaying) {
+            mciSendString("stop laser_sound", NULL, 0, NULL);
+            mciSendString("seek laser_sound to start", NULL, 0, NULL); 
+            isLaserSoundPlaying = false;
         }
-
-        // ===== H? TH?NG ULTIMATE (LASER) =====
-        if (player.laserTimer <= 0) {
-            // Khi KHÔNG b?n laser
-            if (player.ultimateTimer < ULTIMATE_COOLDOWN) {
-                player.ultimateTimer += 0.015;
-            }
-            
-            // D?NG ÂM THANH N?U ÐANG PHÁT
-            if (isLaserSoundPlaying) {
-                mciSendString("stop laser_sound", NULL, 0, NULL);
-                mciSendString("seek laser_sound to start", NULL, 0, NULL); // Ðua v? d?u file
-                isLaserSoundPlaying = false;
-            }
-        } else {
-            // Khi ÐANG b?n laser
-            player.ultimateTimer -= 0.05; 
-            
-            // PHÁT ÂM THANH L?P L?I (Ch? g?i l?nh 1 l?n duy nh?t)
-            if (!isLaserSoundPlaying) {
-                mciSendString("play laser_sound repeat", NULL, 0, NULL);
-                isLaserSoundPlaying = true;
-            }
-
-            if (player.ultimateTimer <= 0) {
-                player.ultimateTimer = 0;
-                player.laserTimer = 0; 
-            }
+    } else {
+        player.ultimateTimer -= 0.05; 
+        if (!isLaserSoundPlaying) {
+            mciSendString("play laser_sound repeat", NULL, 0, NULL);
+            isLaserSoundPlaying = true;
         }
-
-        // Kích ho?t khi nh?n chu?t ph?i
-        if (ismouseclick(WM_RBUTTONDOWN)) {
-            clearmouseclick(WM_RBUTTONDOWN);
-            if (player.ultimateTimer >= ULTIMATE_COOLDOWN) {
-                player.laserTimer = 1; 
-                triggerUltimate();
-            }
+        if (player.ultimateTimer <= 0) {
+            player.ultimateTimer = 0;
+            player.laserTimer = 0; 
         }
-		
-		// ===== C?P NH?T TH?I GIAN B?T T? =====
-        if (player.invincibilityTimer > 0) {
-            player.invincibilityTimer -= 0.02; // Gi?m d?n timer m?i frame
-        }
-		
-        // ===== BUFF / POWER-UP =====
-        if (player.speedBoostTimer > 0) {
-            currentPlayerSpeed = 15;
-            player.speedBoostTimer -= 0.02;
-            if (player.speedBoostTimer <= 0)
-                currentPlayerSpeed = PLAYER_SPEED;
-        }
+    }
 
-        if (player.fireRateBoostTimer > 0) {
-            currentShootDelay = 100;
-            player.fireRateBoostTimer -= 0.02;
-            if (player.fireRateBoostTimer <= 0)
-                currentShootDelay = SHOOT_DELAY;
+    // Kich hoat khi nhan chuot phai
+    if (ismouseclick(WM_RBUTTONDOWN)) {
+        clearmouseclick(WM_RBUTTONDOWN);
+        if (player.ultimateTimer >= ULTIMATE_COOLDOWN) {
+            player.laserTimer = 1; 
+            triggerUltimate();
         }
+    }
+    
+    // Giam thoi gian bat tu
+    if (player.invincibilityTimer > 0) player.invincibilityTimer -= 0.02; 
+    
+    // Xu ly Buff / Power-up
+    if (player.speedBoostTimer > 0) {
+        currentPlayerSpeed = 15;
+        player.speedBoostTimer -= 0.02;
+        if (player.speedBoostTimer <= 0) currentPlayerSpeed = PLAYER_SPEED;
+    }
 
-        if (player.bulletSizeTimer > 0) {
-            currentBulletSize = 7.5;
-            player.bulletSizeTimer -= 0.02;
-            if (player.bulletSizeTimer <= 0)
-                currentBulletSize = 5;
-        }
+    if (player.fireRateBoostTimer > 0) {
+        currentShootDelay = 100;
+        player.fireRateBoostTimer -= 0.02;
+        if (player.fireRateBoostTimer <= 0) currentShootDelay = SHOOT_DELAY;
+    }
 
-        if (player.shieldTimer > 0)
-            player.shieldTimer -= 0.02;
+    if (player.bulletSizeTimer > 0) {
+        currentBulletSize = 7.5;
+        player.bulletSizeTimer -= 0.02;
+        if (player.bulletSizeTimer <= 0) currentBulletSize = 5;
+    }
 
-        if (player.damageBoostTimer > 0)
-            player.damageBoostTimer -= 0.02;
+    if (player.shieldTimer > 0) player.shieldTimer -= 0.02;
+    if (player.damageBoostTimer > 0) player.damageBoostTimer -= 0.02;
 
-        // ===== BUFF MÁY BAY Ð?NG Ð?I =====
-        if (player.companionBoostTimer > 0) {
-            player.companionBoostTimer -= 0.02; // Gi?m d?n th?i gian buff
-        
-            updateCompanions(); 
-            
-        } else {
-            // Khi h?t th?i gian buff, l?p t?c t?t c? 2 máy bay
-            companions[1].active = false;
-            companions[2].active = false;
-        }
+    // Buff may bay ho tro
+    if (player.companionBoostTimer > 0) {
+        player.companionBoostTimer -= 0.02; 
+        updateCompanions(); 
+    } else {
+        companions[1].active = false;
+        companions[2].active = false;
     }
 }
 
-// B?n d?n tàu chính
-void shootBullet() {
-	// ---------- THÊM DÒNG NÀY VÀO Ð?U HÀM ----------
-    PlaySound(TEXT("ban.wav"), NULL, SND_FILENAME | SND_ASYNC);
-    // Ð?n player
-    for (int i = 0; i < MAX_BULLETS; i++) {
-        if (!bullets[i].active) {
-            bullets[i].active = true;
-            bullets[i].x = player.x;
-            bullets[i].y = player.y - player.radius;
-            bullets[i].dx = 0;
-            bullets[i].dy = -BULLET_SPEED;
-            bullets[i].highDamage = player.damageBoostTimer > 0;
-            bullets[i].isEnemy = false; // Ð?n c?a ngu?i choi
-            break;
-        }
-    }
-
-    // === Companion b?n theo ===
-    for (int i = 0; i < 3; i++) {
-        if (!companions[i].active) continue;
-
-        for (int j = 0; j < MAX_BULLETS; j++) {
-            if (!bullets[j].active) {
-                bullets[j].active = true;
-                bullets[j].x = companions[i].x;
-                bullets[j].y = companions[i].y - companions[i].radius;
-                bullets[j].dx = 0;
-                bullets[j].dy = -BULLET_SPEED;
-                bullets[j].highDamage = player.damageBoostTimer > 0;
-                bullets[j].isEnemy = false; // Ð?n c?a droids
-                break;
-            }
-        }
-    }
-}
-
-// C?p nh?t máy bay h? tr?
 void updateCompanions() {
-    // Kho?ng cách bên Trái (-60) và Ph?i (+60)
     int sideOffsetX[2] = { -60, 60 }; 
-    // Ð? cao: Ð? 10 d? máy bay ph? lùi l?i phía sau m?t chút so v?i máy bay chính
     int sideOffsetY = 10; 
 
-    // ===== Máy bay bên TRÁI =====
-    // (Dùng index 1 gi?ng v?i code b?t máy bay ? các ph?n tru?c c?a b?n)
     if (companions[1].active) {
         companions[1].x = player.x + sideOffsetX[0];
         companions[1].y = player.y + sideOffsetY;
     }
-
-    // ===== Máy bay bên PH?I =====
-    // (Dùng index 2)
     if (companions[2].active) {
         companions[2].x = player.x + sideOffsetX[1];
         companions[2].y = player.y + sideOffsetY;
     }
 }
-// C?p nh?t d?n
+
 void updateBullets() {
     for (int i = 0; i < MAX_BULLETS; i++) {
         if (bullets[i].active) {
@@ -1771,111 +353,6 @@ void updateBullets() {
     }
 }
 
-// Sinh k? d?ch
-void spawnEnemy() {
-    // Ðã thêm levelTransitionTimer > 0 vào di?u ki?n ch?n
-    if (gameOver || gameWon || levelTransitionTimer > 0) return;
-
-    int spawnChance = 50 - difficultyLevel * 10 - postBossDifficulty * 5;
-    if (spawnChance < 10) spawnChance = 10;
-
-    if (rand() % spawnChance != 0) return;
-
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        if (!enemies[i].active) {
-            enemies[i].x = rand() % SCREEN_WIDTH;
-            enemies[i].y = -20;   // ngoài màn hình m?t chút
-
-            int randType = rand() % 100;
-            int type;
-
-            if (postBossDifficulty > 0) {
-                if (randType < 10) type = 1;
-                else if (randType < 20) type = 2;
-                else if (randType < 30) type = 3;
-                else if (randType < 40) type = 4;
-                else if (randType < 50) type = 5;
-                else if (randType < 60) type = 6;
-                else if (randType < 70) type = 7;
-                else if (randType < 80) type = 8;
-                else if (randType < 85) type = 9;
-                else if (randType < 90) type = 10;
-                else if (randType < 93) type = 11;
-                else if (randType < 95) type = 12;
-                else if (randType < 97) type = 13;
-                else if (randType < 99) type = 14;
-                else type = 15;
-            } else {
-                if (randType < 20) type = 1;
-                else if (randType < 35) type = 2;
-                else if (randType < 50) type = 3;
-                else if (randType < 60) type = 4;
-                else if (randType < 70) type = 5;
-                else if (randType < 75) type = 6;
-                else if (randType < 80) type = 7;
-                else if (randType < 85) type = 8;
-                else if (randType < 90) type = 9;
-                else if (randType < 92) type = 10;
-                else if (randType < 94) type = 11;
-                else if (randType < 96) type = 12;
-                else if (randType < 98) type = 13;
-                else if (randType < 99) type = 14;
-                else type = 15;
-            }
-
-            enemies[i].type = type;
-            enemies[i].radius =
-                (type <= 5) ? (10 + type * 2) :
-                (type <= 10) ? (12 + type) :
-                               (15 + type / 2);
-
-            enemies[i].health =
-                (type <= 5)  ? (1 + type / 4 + difficultyLevel / 2 + postBossDifficulty) :
-                (type <= 10) ? (1 + type / 6 + difficultyLevel / 2 + postBossDifficulty) :
-                               (2 + type / 8 + difficultyLevel / 2 + postBossDifficulty);
-
-            enemies[i].zigzagTimer = 0;
-            enemies[i].dashTimer = 0;
-            enemies[i].shootTimer = 0;
-            enemies[i].specialTimer = 0;
-            enemies[i].active = true;
-            break;
-        }
-    }
-}
-
-// Sinh boss
-void spawnBoss() {
-    if (bossActive) return;
-    int bossType = 0;
-    
-    // ? giai do?n di?m siêu cao (vô t?n), Boss s? du?c random d? t?o b?t ng?
-    if (score >= 2000) bossType = 16 + (rand() % 4); 
-    else if (score >= 1500) bossType = 18;
-    else if (score >= 1000) bossType = 17;
-    else if (score >= 500) bossType = 16;
-    else return;
-
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        if (!enemies[i].active) {
-            enemies[i].x = SCREEN_WIDTH / 2;
-            enemies[i].y = 50;
-            enemies[i].type = bossType;
-            enemies[i].radius = bossType == 16 ? 40 : bossType == 17 ? 50 : bossType == 18 ? 60 : 70;
-            enemies[i].health = bossType == 16 ? 50 : bossType == 17 ? 100 : bossType == 18 ? 150 : 200;
-            enemies[i].zigzagTimer = 0;
-            enemies[i].dashTimer = 0;
-            enemies[i].shootTimer = 0;
-            enemies[i].specialTimer = 0;
-            enemies[i].active = true;
-            bossActive = true;
-            postBossDifficulty = 0;
-            break;
-        }
-    }
-}
-
-// C?p nh?t k? d?ch
 void updateEnemies() {
     for (int i = 0; i < MAX_ENEMIES; i++) {
         if (enemies[i].active) {
@@ -1883,6 +360,8 @@ void updateEnemies() {
             float dy = player.y - enemies[i].y;
             float dist = sqrt(dx * dx + dy * dy);
             float speed = 2.0 + difficultyLevel * 0.5 + postBossDifficulty * 0.3;
+
+            // Xet toc do tuy thuoc vao loai quai
             if (enemies[i].type == 2 || enemies[i].type == 7 || enemies[i].type == 12) speed = 3.5 + difficultyLevel * 0.5 + postBossDifficulty * 0.3;
             else if (enemies[i].type == 3) speed = 1.5 + difficultyLevel * 0.5 + postBossDifficulty * 0.3;
             else if (enemies[i].type == 4 || enemies[i].type == 9 || enemies[i].type == 14) {
@@ -1896,19 +375,21 @@ void updateEnemies() {
             else if (enemies[i].type == 5 || enemies[i].type == 11 || enemies[i].type == 15) speed = 1.0 + difficultyLevel * 0.5 + postBossDifficulty * 0.3;
             else if (enemies[i].type >= 16) speed = enemies[i].type == 19 ? 3.0 : 1.5;
 
+            // Huong di chuyen bam theo nguoi choi
             if (dist > 0) {
                 enemies[i].dx = speed * dx / dist;
                 enemies[i].dy = speed * dy / dist;
             }
 
+            // Hanh dong dac biet
             if (enemies[i].type == 2 || enemies[i].type == 7 || enemies[i].type == 13) {
                 enemies[i].zigzagTimer += 0.1;
                 enemies[i].x += 5 * sin(enemies[i].zigzagTimer);
             }
 
-            if (enemies[i].type == 10) {
+            if (enemies[i].type == 10) { // Dodger - Ne dan
                 for (int j = 0; j < MAX_BULLETS; j++) {
-                    if (bullets[j].active) {
+                    if (bullets[j].active && !bullets[j].isEnemy) {
                         float bulletDist = sqrt(pow(bullets[j].x - enemies[i].x, 2) + pow(bullets[j].y - enemies[i].y, 2));
                         if (bulletDist < 50) {
                             float angle = atan2(bullets[j].y - enemies[i].y, bullets[j].x - enemies[i].x);
@@ -1919,6 +400,7 @@ void updateEnemies() {
                 }
             }
 
+            // Linh ban tia
             if (enemies[i].type == 5 || enemies[i].type == 11 || enemies[i].type == 15) {
                 enemies[i].shootTimer += 0.02;
                 if (enemies[i].shootTimer > 2) {
@@ -1942,6 +424,7 @@ void updateEnemies() {
                 }
             }
 
+            // Pattern ban dan cua Boss
             if (enemies[i].type == 16) {
                 enemies[i].specialTimer += 0.02;
                 if (enemies[i].specialTimer > 3) {
@@ -1976,7 +459,7 @@ void updateEnemies() {
                                     bullets[l].dx = BULLET_SPEED * cos(angle) * 0.3;
                                     bullets[l].dy = BULLET_SPEED * sin(angle) * 0.3;
                                     bullets[l].active = true;
-                                    bullets[k].isEnemy = true;
+                                    bullets[l].isEnemy = true;
                                     break;
                                 }
                             }
@@ -1986,7 +469,7 @@ void updateEnemies() {
                 }
             }
 
-            if (enemies[i].type == 18) {
+            if (enemies[i].type == 18) { // Boss Trieu hoi
                 enemies[i].specialTimer += 0.02;
                 if (enemies[i].specialTimer > 5) {
                     for (int j = 0; j < 2; j++) {
@@ -2033,18 +516,16 @@ void updateEnemies() {
                 }
             }
 
+            // Cap nhat vi tri cuoi cung
             enemies[i].x += enemies[i].dx;
             enemies[i].y += enemies[i].dy;
             
-            // Gi? d?ch không l?t ra kh?i 2 c?nh trái/ph?i màn hình
+            // Gioi han map
             if (enemies[i].x < enemies[i].radius) enemies[i].x = enemies[i].radius;
             if (enemies[i].x > SCREEN_WIDTH - enemies[i].radius) enemies[i].x = SCREEN_WIDTH - enemies[i].radius;
-            
-            // Gi? d?ch không bay ngu?c lên quá tr?n màn hình (khi dang truy du?i)
             if (enemies[i].y < enemies[i].radius) enemies[i].y = enemies[i].radius;
             
-            // ===== GI?I H?N T?M TH?P C?A Ð?CH =====
-            // Gi?i h?n y không cho d?ch xu?ng th?p hon t?m súng (cách dáy màn hình 150 pixel)
+            // GIOI HAN TAM THAP CUA DICH
             int lowerLimitY = SCREEN_HEIGHT - 60; 
             if (enemies[i].y > lowerLimitY) {
                 enemies[i].y = lowerLimitY;
@@ -2053,67 +534,37 @@ void updateEnemies() {
     }
 }
 
-// T?o v?t ph?m
-void spawnPowerUp(float x, float y) {
-    if (rand() % 100 < 40) {
-        for (int i = 0; i < MAX_POWERUPS; i++) {
-            if (!powerUps[i].active) {
-                powerUps[i].x = x;
-                powerUps[i].y = y;
-                powerUps[i].dy = 2.0;
-                
-                // C?P NH?T: Ch? random t? 1 d?n 8 tuong ?ng v?i 8 lo?i v?t ph?m hi?n t?i
-                powerUps[i].type = rand() % 8 + 1; 
-                
-                powerUps[i].active = true;
-                break;
-            }
-        }
-    }
-}
-
-// C?p nh?t v?t ph?m
 void updatePowerUps() {
     for (int i = 0; i < MAX_POWERUPS; i++) {
         if (powerUps[i].active) {
             powerUps[i].y += powerUps[i].dy;
+            if (powerUps[i].y > SCREEN_HEIGHT) powerUps[i].active = false;
             
-            if (powerUps[i].y > SCREEN_HEIGHT) 
-                powerUps[i].active = false;
-            
-            // 1. Ki?m tra va ch?m v?i máy bay chính
             float distPlayer = sqrt(pow(player.x - powerUps[i].x, 2) + pow(player.y - powerUps[i].y, 2));
             bool pickedUp = false;
 
-            if (distPlayer < player.radius + 8) {
-                pickedUp = true;
-            }
+            if (distPlayer < player.radius + 8) pickedUp = true;
 
-            // 2. Ki?m tra va ch?m v?i các máy bay h? tr? (Companions)
-            // N?u máy bay chính chua nh?t, thì ki?m tra các d? t?
             if (!pickedUp) {
                 for (int j = 0; j < MAX_COMPANIONS; j++) {
                     if (companions[j].active) {
                         float distComp = sqrt(pow(companions[j].x - powerUps[i].x, 2) + pow(companions[j].y - powerUps[i].y, 2));
                         if (distComp < companions[j].radius + 8) {
                             pickedUp = true;
-                            break; // M?t máy bay nh?t là d?, thoát vòng l?p companion
+                            break; 
                         }
                     }
                 }
             }
 
-            // 3. X? lý logic khi nh?t du?c v?t ph?m
             if (pickedUp) {
                 powerUps[i].active = false;
-                
-                // Hi?u ?ng n? nh? khi nh?t du?c d? cho d?p m?t
                 createExplosion(powerUps[i].x, powerUps[i].y);
 
                 switch (powerUps[i].type) {
                     case 1: 
                         player.fireRateBoostTimer = 10.0; 
-                        player.currentFruitType = 1; // Chu?i
+                        player.currentFruitType = 1; 
                         break; 
                     case 2: 
                         player.speedBoostTimer = 10.0; 
@@ -2126,22 +577,19 @@ void updatePowerUps() {
                         break;
                     case 5: 
                         player.damageBoostTimer = 10.0; 
-                        player.currentFruitType = 5; // Táo
+                        player.currentFruitType = 5; 
                         break; 
                     case 6: 
                         player.bulletSizeTimer = 10.0; 
                         break;
-                    case 7: // Ultimate Charge
-                        player.ultimateTimer += ULTIMATE_COOLDOWN * 0.3; // Tang thêm 30% thanh n?
+                    case 7: 
+                        player.ultimateTimer += ULTIMATE_COOLDOWN * 0.3; 
                         if (player.ultimateTimer > ULTIMATE_COOLDOWN) player.ultimateTimer = ULTIMATE_COOLDOWN;
                         break;
-                    case 8: // Companion Boost
+                    case 8: 
                         player.companionBoostTimer = 10.0; 
-                        if (!companions[1].active) {
-                            companions[1].active = true;
-                        } else if (!companions[2].active) {
-                            companions[2].active = true;
-                        }
+                        if (!companions[1].active) companions[1].active = true;
+                        else if (!companions[2].active) companions[2].active = true;
                         break;
                 }
             }
@@ -2149,66 +597,6 @@ void updatePowerUps() {
     }
 }
 
-// T?o v? n?
-void createExplosion(float x, float y) {
-    // 1. T?O 1 SÓNG XUNG KÍCH (SHOCKWAVE)
-    for (int i = 0; i < MAX_PARTICLES; i++) {
-        if (!particles[i].active) {
-            particles[i].x = x;
-            particles[i].y = y;
-            particles[i].dx = 0;
-            particles[i].dy = 0;
-            particles[i].life = 12;      // T?n t?i trong th?i gian ng?n
-            particles[i].maxLife = 12;
-            particles[i].size = 2;       // B?t d?u t? tâm
-            particles[i].type = 1;       // Lo?i: Shockwave
-            particles[i].active = true;
-            break;
-        }
-    }
-
-    // 2. T?O TIA L?A B?N TÓE RA M?I HU?NG
-    int numSparks = 10 + rand() % 6; // 10 d?n 15 h?t
-    for (int k = 0; k < numSparks; k++) {
-        for (int i = 0; i < MAX_PARTICLES; i++) {
-            if (!particles[i].active) {
-                particles[i].x = x;
-                particles[i].y = y;
-                
-                // Góc ng?u nhiên 360 d?
-                float angle = (rand() % 360) * PI / 180.0;
-                // T?c d? vang ng?u nhiên t? 2.0 d?n 8.0
-                float speed = (rand() % 60) / 10.0 + 2.0; 
-                
-                particles[i].dx = speed * cos(angle);
-                particles[i].dy = speed * sin(angle);
-                particles[i].life = 15 + rand() % 15;
-                particles[i].maxLife = particles[i].life;
-                particles[i].size = (rand() % 3) + 2; // H?t to nh? khác nhau
-                
-                // Tr?n màu l?a ng?u nhiên
-                int col = rand() % 4;
-                particles[i].color = (col == 0) ? WHITE : (col == 1) ? YELLOW : (col == 2) ? LIGHTRED : RED;
-                
-                particles[i].type = 0; // Lo?i: Tia l?a d?c
-                particles[i].active = true;
-                break;
-            }
-        }
-    }
-}
-
-// Kích ho?t chiêu cu?i
-void triggerUltimate() {
-    // Không c?n x? lý xóa k? d?ch ? dây n?a
-    // Chúng ta s? x? lý sát thuong liên t?c trong hàm checkCollisions
-    // Hi?u ?ng h?t lúc b?t d?u kích ho?t
-    for (int i = 0; i < 15; i++) {
-        createExplosion(player.x, player.y - player.radius);
-    }
-}
-
-// C?p nh?t h?t v? n?
 void updateParticles() {
     for (int i = 0; i < MAX_PARTICLES; i++) {
         if (particles[i].active) {
@@ -2216,10 +604,8 @@ void updateParticles() {
             particles[i].y += particles[i].dy;
             
             if (particles[i].type == 1) {
-                // N?u là shockwave: Phình to ra r?t nhanh
                 particles[i].size += 4.5; 
             } else {
-                // N?u là tia l?a: Ch?m d?n d?u t?o c?m giác bung t?a t? nhiên
                 particles[i].dx *= 0.85;
                 particles[i].dy *= 0.85;
             }
@@ -2230,23 +616,22 @@ void updateParticles() {
     }
 }
 
-// Ki?m tra va ch?m
+// KHOI LENH XU LY VA CHAM (COLLISIONS)
 void checkCollisions() {
-    // ----- 1. X? LÝ SÁT THUONG LASER -----
+    // --- 1. XU LY SAT THUONG LASER ---
     if (player.laserTimer > 0) {
         for (int j = 0; j < MAX_ENEMIES; j++) {
             if (enemies[j].active) {
-                // Laser quét theo tr?c d?c c?a Player
                 if (enemies[j].x > player.x - 25 && enemies[j].x < player.x + 25 && enemies[j].y < player.y) {
                     enemies[j].health -= 2; 
                     if (rand() % 3 == 0) createExplosion(enemies[j].x, enemies[j].y);
 
                     if (enemies[j].health <= 0) {
                         enemies[j].active = false;
-                        // Tính di?m cho Laser
                         int points = (enemies[j].type <= 5) ? 10 : (enemies[j].type <= 10) ? 20 : 50;
                         score += points;
                         if (enemies[j].type >= 16) { bossActive = false; postBossDifficulty++; }
+                        
                         createExplosion(enemies[j].x, enemies[j].y);
                         spawnPowerUp(enemies[j].x, enemies[j].y);
                     }
@@ -2255,11 +640,11 @@ void checkCollisions() {
         }
     }
 
-    // ----- 2. X? LÝ VA CH?M Ð?N -----
+    // --- 2. XU LY VA CHAM DAN ---
     for (int i = 0; i < MAX_BULLETS; i++) {
         if (bullets[i].active) {
             
-            // TRU?NG H?P 1: Ð?N NGU?I CHOI B?N TRÚNG Ð?CH
+            // Truong hop 1: Dan nguoi choi ban trung dich
             if (!bullets[i].isEnemy) {
                 for (int j = 0; j < MAX_ENEMIES; j++) {
                     if (enemies[j].active) {
@@ -2281,7 +666,6 @@ void checkCollisions() {
                                     bossActive = false; 
                                     postBossDifficulty++; 
                                 }
-                                if (enemies[j].type == 19) gameWon = true;
 
                                 for(int k = 0; k < 3; k++) 
                                     createExplosion(enemies[j].x + rand()%10-5, enemies[j].y + rand()%10-5);
@@ -2292,21 +676,20 @@ void checkCollisions() {
                     }
                 }
             } 
-            // TRU?NG H?P 2: Ð?N Ð?CH B?N TRÚNG NGU?I CHOI
+            // Truong hop 2: Dan dich ban trung nguoi choi
             else {
-                if (player.invincibilityTimer <= 0) { // Ch? sát thuong khi không b?t t?
+                if (player.invincibilityTimer <= 0) { 
                     float dist = sqrt(pow(bullets[i].x - player.x, 2) + pow(bullets[i].y - player.y, 2));
-                    if (dist < player.radius + 5) { // 5 là bán kính d?n d?ch
-                        bullets[i].active = false; // Ð?n ch?m là n?/bi?n m?t
+                    if (dist < player.radius + 5) { 
+                        bullets[i].active = false; 
                         createExplosion(bullets[i].x, bullets[i].y);
                         
-                        // Xét khiên/m?ng (gi?ng h?t lúc d?ch dâm vào ngu?i)
                         if (player.shieldTimer > 0) {
-                            player.shieldTimer = 0;          // V? khiên
-                            player.invincibilityTimer = 1.0; // B?t t? nh? 1s
+                            player.shieldTimer = 0;          
+                            player.invincibilityTimer = 1.0; 
                         } else {
                             player.lives--;
-                            player.invincibilityTimer = 2.0; // B?t t? 2s
+                            player.invincibilityTimer = 2.0; 
                             if (player.lives <= 0) gameOver = true;
                         }
                     }
@@ -2315,26 +698,21 @@ void checkCollisions() {
         }
     }
 
-    // ----- 3. VA CH?M NGU?I CHOI & K? Ð?CH -----
+    // --- 3. VA CHAM NGUOI CHOI TONG VAO KE DICH ---
     for (int i = 0; i < MAX_ENEMIES; i++) {
-        // Ch? c?n ngu?i choi không trong tr?ng thái b?t t? thì s? xét va ch?m
         if (enemies[i].active && player.invincibilityTimer <= 0) {
             float dist = sqrt(pow(player.x - enemies[i].x, 2) + pow(player.y - enemies[i].y, 2));
             if (dist < player.radius + enemies[i].radius) {
                 
-                // N?U CÓ KHIÊN: M?t khiên, không tr? m?ng
                 if (player.shieldTimer > 0) {
-                    player.shieldTimer = 0;          // V? khiên ngay l?p t?c
-                    player.invincibilityTimer = 1.0; // Cho 1 giây b?t t? d? không b? d?ch khác dâm b?i thêm
-                } 
-                // N?U KHÔNG CÓ KHIÊN: Tr? m?ng
-                else {
+                    player.shieldTimer = 0;          
+                    player.invincibilityTimer = 1.0; 
+                } else {
                     player.lives--;
-                    player.invincibilityTimer = 2.0; // B?t t? 2 giây sau khi m?t m?ng
+                    player.invincibilityTimer = 2.0; 
                     if (player.lives <= 0) gameOver = true;
                 }
                 
-                // Dù dâm vào khiên hay dâm vào thân máy bay, k? d?ch dó cung s? n? tung
                 enemies[i].active = false;
                 if (enemies[i].type >= 16) { bossActive = false; postBossDifficulty++; }
                 createExplosion(enemies[i].x, enemies[i].y);
@@ -2342,7 +720,7 @@ void checkCollisions() {
         }
     }
 
-    // ----- 4. LOGIC LÊN C?P & SPAWN BOSS -----
+    // --- 4. LOGIC LEN CAP & GOI BOSS (CHE DO VO TAN) ---
     int oldLevel = difficultyLevel; 
 
     if (score >= 2000 && difficultyLevel < 4) {
@@ -2357,24 +735,1235 @@ void checkCollisions() {
         difficultyLevel = 1; companions[1].active = true;
     }
 
+    // Ngu sinh linh 3 giay de thong bao
     if (difficultyLevel > oldLevel) {
         levelTransitionTimer = 3.0; 
     }
 
-    // CH? Ð? VÔ T?N: Boss xu?t hi?n d?nh k? m?i 500 di?m
+    // Boss se lien tuc xuat hien moi 500 diem
     if (!bossActive && levelTransitionTimer <= 0 && score >= nextBossScore) {
         spawnBoss();
-        nextBossScore += 500; // C?ng d?n d? Boss ti?p theo xu?t hi?n ? 2500, 3000, 3500...
+        nextBossScore += 500; 
     }
 }
 
-// V? giao di?n
+// CAC HAM HO TRO (HELPERS: SINH DICH, BAN DAN, NO...)
+void spawnEnemy() {
+    if (levelTransitionTimer > 0) return;
+
+    int spawnChance = 50 - difficultyLevel * 10 - postBossDifficulty * 5;
+    if (spawnChance < 10) spawnChance = 10;
+    if (rand() % spawnChance != 0) return;
+
+    for (int i = 0; i < MAX_ENEMIES; i++) {
+        if (!enemies[i].active) {
+            enemies[i].x = rand() % SCREEN_WIDTH;
+            enemies[i].y = -20;   
+
+            int randType = rand() % 100;
+            int type;
+
+            if (postBossDifficulty > 0) {
+                if (randType < 10) type = 1; else if (randType < 20) type = 2;
+                else if (randType < 30) type = 3; else if (randType < 40) type = 4;
+                else if (randType < 50) type = 5; else if (randType < 60) type = 6;
+                else if (randType < 70) type = 7; else if (randType < 80) type = 8;
+                else if (randType < 85) type = 9; else if (randType < 90) type = 10;
+                else if (randType < 93) type = 11; else if (randType < 95) type = 12;
+                else if (randType < 97) type = 13; else if (randType < 99) type = 14;
+                else type = 15;
+            } else {
+                if (randType < 20) type = 1; else if (randType < 35) type = 2;
+                else if (randType < 50) type = 3; else if (randType < 60) type = 4;
+                else if (randType < 70) type = 5; else if (randType < 75) type = 6;
+                else if (randType < 80) type = 7; else if (randType < 85) type = 8;
+                else if (randType < 90) type = 9; else if (randType < 92) type = 10;
+                else if (randType < 94) type = 11; else if (randType < 96) type = 12;
+                else if (randType < 98) type = 13; else if (randType < 99) type = 14;
+                else type = 15;
+            }
+
+            enemies[i].type = type;
+            enemies[i].radius = (type <= 5) ? (10 + type * 2) : (type <= 10) ? (12 + type) : (15 + type / 2);
+            enemies[i].health = (type <= 5)  ? (1 + type / 4 + difficultyLevel / 2 + postBossDifficulty) :
+                                (type <= 10) ? (1 + type / 6 + difficultyLevel / 2 + postBossDifficulty) :
+                                               (2 + type / 8 + difficultyLevel / 2 + postBossDifficulty);
+
+            enemies[i].zigzagTimer = 0;
+            enemies[i].dashTimer = 0;
+            enemies[i].shootTimer = 0;
+            enemies[i].specialTimer = 0;
+            enemies[i].active = true;
+            break;
+        }
+    }
+}
+
+void spawnBoss() {
+    if (bossActive) return;
+    int bossType = 0;
+    
+    // Giai doan diem sieu cao se ramdom Boss de tao thu thach
+    if (score >= 2000) bossType = 16 + (rand() % 4); 
+    else if (score >= 1500) bossType = 18;
+    else if (score >= 1000) bossType = 17;
+    else if (score >= 500) bossType = 16;
+    else return;
+
+    for (int i = 0; i < MAX_ENEMIES; i++) {
+        if (!enemies[i].active) {
+            enemies[i].x = SCREEN_WIDTH / 2;
+            enemies[i].y = 50;
+            enemies[i].type = bossType;
+            enemies[i].radius = bossType == 16 ? 40 : bossType == 17 ? 50 : bossType == 18 ? 60 : 70;
+            enemies[i].health = bossType == 16 ? 50 : bossType == 17 ? 100 : bossType == 18 ? 150 : 200;
+            enemies[i].zigzagTimer = 0;
+            enemies[i].dashTimer = 0;
+            enemies[i].shootTimer = 0;
+            enemies[i].specialTimer = 0;
+            enemies[i].active = true;
+            bossActive = true;
+            postBossDifficulty = 0;
+            break;
+        }
+    }
+}
+
+void spawnPowerUp(float x, float y) {
+    if (rand() % 100 < 40) {
+        for (int i = 0; i < MAX_POWERUPS; i++) {
+            if (!powerUps[i].active) {
+                powerUps[i].x = x;
+                powerUps[i].y = y;
+                powerUps[i].dy = 2.0;
+                powerUps[i].type = rand() % 8 + 1; 
+                powerUps[i].active = true;
+                break;
+            }
+        }
+    }
+}
+
+void shootBullet() {
+    PlaySound(TEXT("ban.wav"), NULL, SND_FILENAME | SND_ASYNC);
+    
+    // Dan cua ban than (Player)
+    for (int i = 0; i < MAX_BULLETS; i++) {
+        if (!bullets[i].active) {
+            bullets[i].active = true;
+            bullets[i].x = player.x;
+            bullets[i].y = player.y - player.radius;
+            bullets[i].dx = 0;
+            bullets[i].dy = -BULLET_SPEED;
+            bullets[i].highDamage = player.damageBoostTimer > 0;
+            bullets[i].isEnemy = false; 
+            break;
+        }
+    }
+
+    // Dan cua De (Companions)
+    for (int i = 0; i < MAX_COMPANIONS; i++) {
+        if (!companions[i].active) continue;
+
+        for (int j = 0; j < MAX_BULLETS; j++) {
+            if (!bullets[j].active) {
+                bullets[j].active = true;
+                bullets[j].x = companions[i].x;
+                bullets[j].y = companions[i].y - companions[i].radius;
+                bullets[j].dx = 0;
+                bullets[j].dy = -BULLET_SPEED;
+                bullets[j].highDamage = player.damageBoostTimer > 0;
+                bullets[j].isEnemy = false; 
+                break;
+            }
+        }
+    }
+}
+
+void triggerUltimate() {
+    for (int i = 0; i < 15; i++) {
+        createExplosion(player.x, player.y - player.radius);
+    }
+}
+
+void createExplosion(float x, float y) {
+    // 1. Tao vong song xung kich
+    for (int i = 0; i < MAX_PARTICLES; i++) {
+        if (!particles[i].active) {
+            particles[i].x = x;
+            particles[i].y = y;
+            particles[i].dx = 0;
+            particles[i].dy = 0;
+            particles[i].life = 12;      
+            particles[i].maxLife = 12;
+            particles[i].size = 2;       
+            particles[i].type = 1;       
+            particles[i].active = true;
+            break;
+        }
+    }
+
+    // 2. Tao bui tia lua vang tu tung
+    int numSparks = 10 + rand() % 6; 
+    for (int k = 0; k < numSparks; k++) {
+        for (int i = 0; i < MAX_PARTICLES; i++) {
+            if (!particles[i].active) {
+                particles[i].x = x;
+                particles[i].y = y;
+                
+                float angle = (rand() % 360) * PI / 180.0;
+                float speed = (rand() % 60) / 10.0 + 2.0; 
+                
+                particles[i].dx = speed * cos(angle);
+                particles[i].dy = speed * sin(angle);
+                particles[i].life = 15 + rand() % 15;
+                particles[i].maxLife = particles[i].life;
+                particles[i].size = (rand() % 3) + 2; 
+                
+                int col = rand() % 4;
+                particles[i].color = (col == 0) ? WHITE : (col == 1) ? YELLOW : (col == 2) ? LIGHTRED : RED;
+                
+                particles[i].type = 0; 
+                particles[i].active = true;
+                break;
+            }
+        }
+    }
+}
+
+// CAC HAM DO HOA (DRAWING)
+void drawBackground() {
+    cleardevice();
+    setcolor(WHITE);
+    for (int i = 0; i < MAX_STARS; i++) {
+        circle(stars[i].x, stars[i].y, stars[i].radius);
+    }
+}
+
+// Thuat toan ve duong tron Midpoint
+void midpointCircle(int xc, int yc, int r, int color) {
+    int x = 0, y = r;
+    int p = 1 - r;
+
+    while (x <= y) {
+        putpixel(xc + x, yc + y, color);
+        putpixel(xc - x, yc + y, color);
+        putpixel(xc + x, yc - y, color);
+        putpixel(xc - x, yc - y, color);
+        putpixel(xc + y, yc + x, color);
+        putpixel(xc - y, yc + x, color);
+        putpixel(xc + y, yc - x, color);
+        putpixel(xc - y, yc - x, color);
+
+        if (p < 0) {
+            p += 2 * x + 3;
+        } else {
+            p += 2 * (x - y) + 5;
+            y--;
+        }
+        x++;
+    }
+}
+
+// Thuat toan Boundary Fill de to mau
+void recursiveBoundaryFill(int x, int y, int fill_color, int boundary_color) {
+    if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT) return;
+
+    int current_color = getpixel(x, y);
+    if (current_color != boundary_color && current_color != fill_color) {
+        putpixel(x, y, fill_color);
+        recursiveBoundaryFill(x + 1, y, fill_color, boundary_color);
+        recursiveBoundaryFill(x - 1, y, fill_color, boundary_color);
+        recursiveBoundaryFill(x, y + 1, fill_color, boundary_color);
+        recursiveBoundaryFill(x, y - 1, fill_color, boundary_color);
+    }
+}
+// Thuat toan ve duong thang Bresenham
+void bresenhamLine(int x1, int y1, int x2, int y2, int color) {
+    int dx = abs(x2 - x1);
+    int dy = abs(y2 - y1);
+    int sx = (x1 < x2) ? 1 : -1;
+    int sy = (y1 < y2) ? 1 : -1;
+    int err = dx - dy;
+
+    while (1) {
+        putpixel(x1, y1, color);
+        if (x1 == x2 && y1 == y2) break;
+        int e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x1 += sx; }
+        if (e2 < dx) { err += dx; y1 += sy; }
+    }
+}
+
+// Thuat toan de quy ve duong cong Koch
+void drawKochLine(float x1, float y1, float x2, float y2, int iter, int color) {
+    if (iter == 0) {
+        bresenhamLine((int)x1, (int)y1, (int)x2, (int)y2, color);
+    } else {
+        float dx = (x2 - x1) / 3.0f;
+        float dy = (y2 - y1) / 3.0f;
+
+        float p1x = x1 + dx;
+        float p1y = y1 + dy;
+
+        float p2x = x1 + 2 * dx;
+        float p2y = y1 + 2 * dy;
+
+        float px = p1x + dx * cos(PI / 3) + dy * sin(PI / 3);
+        float py = p1y - dx * sin(PI / 3) + dy * cos(PI / 3);
+
+        drawKochLine(x1, y1, p1x, p1y, iter - 1, color);
+        drawKochLine(p1x, p1y, px, py, iter - 1, color);
+        drawKochLine(px, py, p2x, p2y, iter - 1, color);
+        drawKochLine(p2x, p2y, x2, y2, iter - 1, color);
+    }
+}
+
+// Ghep 3 duong Koch thanh hinh Bong tuyet xoay
+void drawKochSnowflake(int x, int y, int radius, int iter, float angle, int color) {
+    // Tinh toan 3 dinh cua tam giac deu duoc xoay theo goc 'angle'
+    float p1x = x + radius * cos(angle - PI / 2);
+    float p1y = y + radius * sin(angle - PI / 2);
+    float p2x = x + radius * cos(angle + PI / 6);
+    float p2y = y + radius * sin(angle + PI / 6);
+    float p3x = x + radius * cos(angle + 5 * PI / 6);
+    float p3y = y + radius * sin(angle + 5 * PI / 6);
+
+    // Ve 3 canh bang duong cong Koch
+    drawKochLine(p1x, p1y, p2x, p2y, iter, color);
+    drawKochLine(p2x, p2y, p3x, p3y, iter, color);
+    drawKochLine(p3x, p3y, p1x, p1y, iter, color);
+}
+void drawPlayer() {
+    // Hieu ung nhap nhay khi bat tu
+    if (player.invincibilityTimer > 0) {
+        if ((int)(player.invincibilityTimer * 15) % 2 == 0) {
+            // Van ve khien neu co
+            if (player.shieldTimer > 0) {
+                midpointCircle(player.x, player.y, player.radius + 10, LIGHTBLUE);
+            }
+            return; // Khong ve tau bay de tao hieu ung chop tat
+        }
+    }
+
+    int x = player.x;
+    int y = player.y;
+    int r = player.radius;
+
+    const int BODY_FILL_COLOR = CYAN;
+    const int LINE_COLOR = LIGHTCYAN;
+    const int COCKPIT_FILL_COLOR = BLUE; 
+    const int POD_FILL_COLOR = LIGHTCYAN; 
+
+    setcolor(LINE_COLOR); 
+    setfillstyle(SOLID_FILL, BODY_FILL_COLOR);
+
+    // 1. Than chinh & Mui
+    int body_points[] = {
+        x, y - (int)(r * 1.6),            
+        x - (int)(r * 0.4), y - (int)(r * 1.3), 
+        x - (int)(r * 0.3), y - (int)(r * 0.4), 
+        x - (int)(r * 0.3), y + (int)(r * 0.8), 
+        x + (int)(r * 0.3), y + (int)(r * 0.8), 
+        x + (int)(r * 0.3), y - (int)(r * 0.4), 
+        x + (int)(r * 0.4), y - (int)(r * 1.3), 
+        x, y - (int)(r * 1.6)              
+    };
+    fillpoly(8, body_points);
+
+    // 2. Canh tam giac
+    int left_wing[] = {
+        x - (int)(r * 0.3), y - (int)(r * 0.3), 
+        x - (int)(r * 1.5), y + (int)(r * 0.2), 
+        x - (int)(r * 1.5), y + (int)(r * 0.9), 
+        x - (int)(r * 0.3), y + (int)(r * 0.7), 
+        x - (int)(r * 0.3), y - (int)(r * 0.3)  
+    };
+    fillpoly(5, left_wing);
+
+    int right_wing[] = {
+        x + (int)(r * 0.3), y - (int)(r * 0.3), 
+        x + (int)(r * 1.5), y + (int)(r * 0.2), 
+        x + (int)(r * 1.5), y + (int)(r * 0.9), 
+        x + (int)(r * 0.3), y + (int)(r * 0.7), 
+        x + (int)(r * 0.3), y - (int)(r * 0.3)  
+    };
+    fillpoly(5, right_wing);
+
+    // Duong phan tach
+    setcolor(BLUE); 
+    line(x - (int)(r * 0.4), y - (int)(r * 0.1), x - (int)(r * 1.4), y + (int)(r * 0.3));
+    line(x - (int)(r * 0.5), y + (int)(r * 0.1), x - (int)(r * 1.3), y + (int)(r * 0.4));
+    line(x - (int)(r * 0.6), y + (int)(r * 0.3), x - (int)(r * 1.2), y + (int)(r * 0.5));
+    line(x + (int)(r * 0.4), y - (int)(r * 0.1), x + (int)(r * 1.4), y + (int)(r * 0.3));
+    line(x + (int)(r * 0.5), y + (int)(r * 0.1), x + (int)(r * 1.3), y + (int)(r * 0.4));
+    line(x + (int)(r * 0.6), y + (int)(r * 0.3), x + (int)(r * 1.2), y + (int)(r * 0.5));
+    line(x - (int)(r * 0.2), y - (int)(r * 1.2), x + (int)(r * 0.2), y - (int)(r * 1.2));
+    line(x - (int)(r * 0.1), y - (int)(r * 1.0), x + (int)(r * 0.1), y - (int)(r * 1.0));
+    line(x - (int)(r * 0.1), y - (int)(r * 0.5), x + (int)(r * 0.1), y - (int)(r * 0.5));
+
+    // 3. Buong lai
+    int cockpit_points[] = {
+        x, y - (int)(r * 0.9),            
+        x - (int)(r * 0.1), y - (int)(r * 0.8), 
+        x - (int)(r * 0.1), y - (int)(r * 0.6), 
+        x + (int)(r * 0.1), y - (int)(r * 0.6), 
+        x + (int)(r * 0.1), y - (int)(r * 0.8), 
+        x, y - (int)(r * 0.9)            
+    };
+    setfillstyle(SOLID_FILL, COCKPIT_FILL_COLOR);
+    fillpoly(6, cockpit_points);
+    setcolor(LIGHTCYAN);
+    line(x - (int)(r * 0.05), y - (int)(r * 0.8), x + (int)(r * 0.05), y - (int)(r * 0.8));
+    line(x - (int)(r * 0.05), y - (int)(r * 0.7), x + (int)(r * 0.05), y - (int)(r * 0.7));
+
+    // 4. Duoi va ong xa phia sau
+    setfillstyle(SOLID_FILL, BODY_FILL_COLOR);
+    setcolor(LINE_COLOR);
+    
+    int left_tail[] = {
+        x - (int)(r * 0.1), y + (int)(r * 0.7), 
+        x - (int)(r * 0.6), y + (int)(r * 1.1), 
+        x - (int)(r * 0.2), y + (int)(r * 1.2), 
+        x - (int)(r * 0.1), y + (int)(r * 1.1)  
+    };
+    fillpoly(4, left_tail);
+    
+    int right_tail[] = {
+        x + (int)(r * 0.1), y + (int)(r * 0.7), 
+        x + (int)(r * 0.6), y + (int)(r * 1.1), 
+        x + (int)(r * 0.2), y + (int)(r * 1.2), 
+        x + (int)(r * 0.1), y + (int)(r * 1.1)  
+    };
+    fillpoly(4, right_tail);
+    
+    setcolor(BLUE);
+    line(x - (int)(r * 0.2), y + (int)(r * 0.8), x - (int)(r * 0.5), y + (int)(r * 1.0));
+    line(x + (int)(r * 0.2), y + (int)(r * 0.8), x + (int)(r * 0.5), y + (int)(r * 1.0));
+
+    bar(x - (int)(r * 0.15), y + (int)(r * 1.2), x - (int)(r * 0.05), y + (int)(r * 1.3));
+    bar(x + (int)(r * 0.05), y + (int)(r * 1.2), x + (int)(r * 0.15), y + (int)(r * 1.3));
+
+    // 5. Vu khi duoi canh
+    setfillstyle(SOLID_FILL, POD_FILL_COLOR);
+    setcolor(BLUE);
+    int left_pod[] = {
+        x - (int)(r * 0.7), y + (int)(r * 0.4), 
+        x - (int)(r * 0.9), y + (int)(r * 0.5), 
+        x - (int)(r * 0.9), y + (int)(r * 0.8), 
+        x - (int)(r * 0.7), y + (int)(r * 0.9)  
+    };
+    fillpoly(4, left_pod);
+    
+    int right_pod[] = {
+        x + (int)(r * 0.7), y + (int)(r * 0.4), 
+        x + (int)(r * 0.9), y + (int)(r * 0.5), 
+        x + (int)(r * 0.9), y + (int)(r * 0.8), 
+        x + (int)(r * 0.7), y + (int)(r * 0.9)  
+    };
+    fillpoly(4, right_pod);
+
+    setcolor(LIGHTCYAN);
+    line(x - (int)(r * 0.8), y + (int)(r * 0.5), x - (int)(r * 0.8), y + (int)(r * 0.8));
+    line(x + (int)(r * 0.8), y + (int)(r * 0.5), x + (int)(r * 0.8), y + (int)(r * 0.8));
+
+    recursiveBoundaryFill(x - (int)(r * 0.75), y + (int)(r * 0.6), LIGHTCYAN, LINE_COLOR);
+
+    // 6. Hieu ung lua dong co (Animated exhaust fire)
+    int flameLenL = (int)(r * 0.4) + rand() % (int)(r * 0.4 + 1);
+    int flameLenR = (int)(r * 0.4) + rand() % (int)(r * 0.4 + 1);
+
+    setcolor(LIGHTRED);
+    setfillstyle(SOLID_FILL, LIGHTRED);
+    int fire_left_outer[] = {
+        x - (int)(r * 0.15), y + (int)(r * 1.3),
+        x - (int)(r * 0.10), y + (int)(r * 1.3) + flameLenL, 
+        x - (int)(r * 0.05), y + (int)(r * 1.3),
+        x - (int)(r * 0.15), y + (int)(r * 1.3)              
+    };
+    fillpoly(4, fire_left_outer);
+
+    setcolor(YELLOW);
+    setfillstyle(SOLID_FILL, YELLOW);
+    int fire_left_inner[] = {
+        x - (int)(r * 0.13), y + (int)(r * 1.3),
+        x - (int)(r * 0.10), y + (int)(r * 1.3) + (int)(flameLenL * 0.6), 
+        x - (int)(r * 0.07), y + (int)(r * 1.3),
+        x - (int)(r * 0.13), y + (int)(r * 1.3)
+    };
+    fillpoly(4, fire_left_inner);
+
+    setcolor(LIGHTRED);
+    setfillstyle(SOLID_FILL, LIGHTRED);
+    int fire_right_outer[] = {
+        x + (int)(r * 0.05), y + (int)(r * 1.3),
+        x + (int)(r * 0.10), y + (int)(r * 1.3) + flameLenR,
+        x + (int)(r * 0.15), y + (int)(r * 1.3),
+        x + (int)(r * 0.05), y + (int)(r * 1.3)
+    };
+    fillpoly(4, fire_right_outer);
+
+    setcolor(YELLOW);
+    setfillstyle(SOLID_FILL, YELLOW);
+    int fire_right_inner[] = {
+        x + (int)(r * 0.07), y + (int)(r * 1.3),
+        x + (int)(r * 0.10), y + (int)(r * 1.3) + (int)(flameLenR * 0.6),
+        x + (int)(r * 0.13), y + (int)(r * 1.3),
+        x + (int)(r * 0.07), y + (int)(r * 1.3)
+    };
+    fillpoly(4, fire_right_inner);
+
+    // 7. Khien (Su dung thuat toan Midpoint Circle)
+    if (player.shieldTimer > 0) {
+        midpointCircle(x, y, r + 10, LIGHTBLUE);
+    }
+}
+
+void drawCompanions() {
+    for (int i = 0; i < MAX_COMPANIONS; i++) {
+        if (!companions[i].active) continue;
+
+        int x = companions[i].x;
+        int y = companions[i].y;
+        int r = companions[i].radius; 
+
+        const int BODY_FILL_COLOR = GREEN;
+        const int LINE_COLOR = LIGHTGREEN;
+        const int COCKPIT_FILL_COLOR = DARKGRAY; 
+        const int POD_FILL_COLOR = LIGHTGREEN;
+
+        setcolor(LINE_COLOR);
+        setfillstyle(SOLID_FILL, BODY_FILL_COLOR);
+
+        int body_points[] = {
+            x, y - (int)(r * 1.6),            
+            x - (int)(r * 0.4), y - (int)(r * 1.3), 
+            x - (int)(r * 0.3), y - (int)(r * 0.4), 
+            x - (int)(r * 0.3), y + (int)(r * 0.8), 
+            x + (int)(r * 0.3), y + (int)(r * 0.8), 
+            x + (int)(r * 0.3), y - (int)(r * 0.4), 
+            x + (int)(r * 0.4), y - (int)(r * 1.3), 
+            x, y - (int)(r * 1.6)              
+        };
+        fillpoly(8, body_points);
+
+        int left_wing[] = {
+            x - (int)(r * 0.3), y - (int)(r * 0.3), 
+            x - (int)(r * 1.5), y + (int)(r * 0.2), 
+            x - (int)(r * 1.5), y + (int)(r * 0.9), 
+            x - (int)(r * 0.3), y + (int)(r * 0.7), 
+            x - (int)(r * 0.3), y - (int)(r * 0.3)  
+        };
+        fillpoly(5, left_wing);
+
+        int right_wing[] = {
+            x + (int)(r * 0.3), y - (int)(r * 0.3), 
+            x + (int)(r * 1.5), y + (int)(r * 0.2), 
+            x + (int)(r * 1.5), y + (int)(r * 0.9), 
+            x + (int)(r * 0.3), y + (int)(r * 0.7), 
+            x + (int)(r * 0.3), y - (int)(r * 0.3)  
+        };
+        fillpoly(5, right_wing);
+
+        int cockpit_points[] = {
+            x, y - (int)(r * 0.9),            
+            x - (int)(r * 0.1), y - (int)(r * 0.8), 
+            x - (int)(r * 0.1), y - (int)(r * 0.6), 
+            x + (int)(r * 0.1), y - (int)(r * 0.6), 
+            x + (int)(r * 0.1), y - (int)(r * 0.8), 
+            x, y - (int)(r * 0.9)            
+        };
+        setfillstyle(SOLID_FILL, COCKPIT_FILL_COLOR);
+        fillpoly(6, cockpit_points);
+
+        setfillstyle(SOLID_FILL, BODY_FILL_COLOR);
+        setcolor(LINE_COLOR);
+        
+        int left_tail[] = {
+            x - (int)(r * 0.1), y + (int)(r * 0.7), 
+            x - (int)(r * 0.6), y + (int)(r * 1.1), 
+            x - (int)(r * 0.2), y + (int)(r * 1.2), 
+            x - (int)(r * 0.1), y + (int)(r * 1.1)  
+        };
+        fillpoly(4, left_tail);
+        
+        int right_tail[] = {
+            x + (int)(r * 0.1), y + (int)(r * 0.7), 
+            x + (int)(r * 0.6), y + (int)(r * 1.1), 
+            x + (int)(r * 0.2), y + (int)(r * 1.2), 
+            x + (int)(r * 0.1), y + (int)(r * 1.1)  
+        };
+        fillpoly(4, right_tail);
+
+        bar(x - (int)(r * 0.15), y + (int)(r * 1.2), x - (int)(r * 0.05), y + (int)(r * 1.3));
+        bar(x + (int)(r * 0.05), y + (int)(r * 1.2), x + (int)(r * 0.15), y + (int)(r * 1.3));
+
+        setfillstyle(SOLID_FILL, POD_FILL_COLOR);
+        int left_pod[] = {
+            x - (int)(r * 0.7), y + (int)(r * 0.4), 
+            x - (int)(r * 0.9), y + (int)(r * 0.5), 
+            x - (int)(r * 0.9), y + (int)(r * 0.8), 
+            x - (int)(r * 0.7), y + (int)(r * 0.9)  
+        };
+        fillpoly(4, left_pod);
+        
+        int right_pod[] = {
+            x + (int)(r * 0.7), y + (int)(r * 0.4), 
+            x + (int)(r * 0.9), y + (int)(r * 0.5), 
+            x + (int)(r * 0.9), y + (int)(r * 0.8), 
+            x + (int)(r * 0.7), y + (int)(r * 0.9)  
+        };
+        fillpoly(4, right_pod);
+
+        int flameLen = (int)(r * 0.3) + rand() % ((int)(r * 0.2) + 1);
+        
+        setcolor(LIGHTRED);
+        setfillstyle(SOLID_FILL, YELLOW);
+        
+        int fire_left[] = {
+            x - (int)(r * 0.15), y + (int)(r * 1.3),
+            x - (int)(r * 0.10), y + (int)(r * 1.3) + flameLen,
+            x - (int)(r * 0.05), y + (int)(r * 1.3),
+            x - (int)(r * 0.15), y + (int)(r * 1.3) 
+        };
+        fillpoly(4, fire_left);
+
+        int fire_right[] = {
+            x + (int)(r * 0.05), y + (int)(r * 1.3),
+            x + (int)(r * 0.10), y + (int)(r * 1.3) + flameLen,
+            x + (int)(r * 0.15), y + (int)(r * 1.3),
+            x + (int)(r * 0.05), y + (int)(r * 1.3)
+        };
+        fillpoly(4, fire_right);
+    }
+}
+
+void drawBullets() {
+    if (player.currentFruitType == 1 && player.fireRateBoostTimer <= 0) player.currentFruitType = 0;
+    if (player.currentFruitType == 5 && player.damageBoostTimer <= 0) player.currentFruitType = 0;
+
+    for (int i = 0; i < MAX_BULLETS; i++) {
+        if (bullets[i].active) {
+            int bx = bullets[i].x;
+            int by = bullets[i].y;
+
+            if (bullets[i].isEnemy) {
+                // Dan dich ban ra (Tron, Do)
+                int enemyBulletRadius = 5;
+                setcolor(WHITE); 
+                setfillstyle(SOLID_FILL, LIGHTRED); 
+                fillellipse(bx, by, enemyBulletRadius, enemyBulletRadius);
+                circle(bx, by, enemyBulletRadius);
+            } 
+            else {
+                // Dan nguoi choi
+                int radius = player.bulletSizeTimer > 0 ? currentBulletSize * 1.5 : currentBulletSize;
+
+                if (player.currentFruitType == 1) { 
+                    // Chuoi
+                    setcolor(YELLOW);
+                    setfillstyle(SOLID_FILL, YELLOW);
+                    int w = radius * 2.0; 
+                    int h = radius * 1.2; 
+                    for (float t = -1.57; t <= 1.57; t += 0.15) {
+                        int cx = bx + sin(t) * w;
+                        int cy = by + cos(t) * h;
+                        int r = (int)((radius * 0.9) * (1.0 - fabs(t) / 1.57));
+                        if (r < 1) r = 1;
+                        fillellipse(cx, cy, r, r);
+                    }
+                    setcolor(BROWN);
+                    setfillstyle(SOLID_FILL, BROWN);
+                    int numSize = radius / 3;
+                    if (numSize < 1) numSize = 1;
+                    fillellipse(bx + w, by, numSize, numSize);
+                } 
+                else if (player.currentFruitType == 5) { 
+                    // Tao
+                    int r_apple = radius * 1.6; 
+                    setcolor(LIGHTRED);
+                    setfillstyle(SOLID_FILL, LIGHTRED);
+                    fillellipse(bx - r_apple/2 + 1, by, r_apple/2 + 2, r_apple); 
+                    fillellipse(bx + r_apple/2 - 1, by, r_apple/2 + 2, r_apple); 
+                    setcolor(BROWN);
+                    line(bx, by - r_apple + 2, bx, by - r_apple - 8); 
+                    setcolor(LIGHTGREEN);
+                    setfillstyle(SOLID_FILL, LIGHTGREEN);
+                    fillellipse(bx + r_apple/2 + 1, by - r_apple - 4, r_apple/2, r_apple/3 + 1); 
+                } 
+                else { 
+                    // Dan thuong
+                    setcolor(WHITE);
+                    setfillstyle(SOLID_FILL, bullets[i].highDamage ? RED : YELLOW);
+                    fillellipse(bx, by, radius, radius);
+                }
+            }
+        }
+    }
+}
+
+void drawEnemies() {
+    for (int i = 0; i < MAX_ENEMIES; i++) {
+        if (!enemies[i].active) continue;
+
+        int size = enemies[i].radius;
+        float angle = atan2(
+            player.y - enemies[i].y,
+            player.x - enemies[i].x
+        );
+
+        switch (enemies[i].type) {
+
+        case 1: // Drone
+            setcolor(LIGHTRED);
+            setfillstyle(SOLID_FILL, RED);
+            rectangle(enemies[i].x - size, enemies[i].y - size, enemies[i].x + size, enemies[i].y + size);
+            floodfill(enemies[i].x, enemies[i].y, LIGHTRED);
+            setcolor(WHITE);
+            rectangle(enemies[i].x - size, enemies[i].y - size, enemies[i].x + size, enemies[i].y + size);
+            setfillstyle(SOLID_FILL, WHITE);
+            fillellipse(enemies[i].x, enemies[i].y, 5, 5);
+            break;
+
+        case 2: // Scout
+        {
+            setcolor(LIGHTGREEN);
+            setfillstyle(SOLID_FILL, GREEN);
+            int points[8];
+            points[0] = enemies[i].x + size * cos(angle);
+            points[1] = enemies[i].y + size * sin(angle);
+            points[2] = enemies[i].x + size * cos(angle + 2.4);
+            points[3] = enemies[i].y + size * sin(angle + 2.4);
+            points[4] = enemies[i].x + size * cos(angle - 2.4);
+            points[5] = enemies[i].y + size * sin(angle - 2.4);
+            points[6] = points[0];
+            points[7] = points[1];
+            fillpoly(4, points);
+            setcolor(WHITE);
+            drawpoly(4, points);
+            setcolor(YELLOW);
+            line(enemies[i].x, enemies[i].y, enemies[i].x - size * cos(angle), enemies[i].y - size * sin(angle));
+            break;
+        }
+
+        case 3: // Tank
+        {
+            setcolor(YELLOW);
+            setfillstyle(SOLID_FILL, LIGHTGRAY);
+            int points_tank[14];
+            for (int j = 0; j < 6; j++) {
+                points_tank[j * 2] = enemies[i].x + size * cos(j * PI / 3);
+                points_tank[j * 2 + 1] = enemies[i].y + size * sin(j * PI / 3);
+            }
+            points_tank[12] = points_tank[0];
+            points_tank[13] = points_tank[1];
+            fillpoly(7, points_tank);
+            setcolor(WHITE);
+            drawpoly(7, points_tank);
+            setcolor(LIGHTCYAN);
+            circle(enemies[i].x, enemies[i].y, size * 0.7);
+            break;
+        }
+
+        case 4: // Chaser
+            setcolor(MAGENTA);
+            setfillstyle(SOLID_FILL, LIGHTMAGENTA);
+            fillellipse(enemies[i].x, enemies[i].y, size, size);
+            setcolor(WHITE);
+            circle(enemies[i].x, enemies[i].y, size);
+            setcolor(LIGHTMAGENTA);
+            circle(enemies[i].x, enemies[i].y, size * 1.2);
+            break;
+
+        case 5: // Sniper
+        {
+            setcolor(WHITE);
+            setfillstyle(SOLID_FILL, LIGHTCYAN);
+            int points_sniper[12];
+            for (int j = 0; j < 5; j++) {
+                points_sniper[j * 2] = enemies[i].x + size * cos(j * 2 * PI / 5);
+                points_sniper[j * 2 + 1] = enemies[i].y + size * sin(j * 2 * PI / 5);
+            }
+            points_sniper[10] = points_sniper[0];
+            points_sniper[11] = points_sniper[1];
+            fillpoly(6, points_sniper);
+            setcolor(WHITE);
+            drawpoly(6, points_sniper);
+            setfillstyle(SOLID_FILL, (rand() % 2) ? WHITE : LIGHTCYAN);
+            fillellipse(enemies[i].x, enemies[i].y, 5, 5);
+            break;
+        }
+
+        case 6: // Bomber
+            setcolor(RED);
+            setfillstyle(SOLID_FILL, DARKGRAY);
+            fillellipse(enemies[i].x, enemies[i].y, size, size * 0.7);
+            setcolor(WHITE);
+            circle(enemies[i].x, enemies[i].y, size);
+            break;
+
+        case 7: // Spinner
+        {
+            setcolor(LIGHTBLUE);
+            setfillstyle(SOLID_FILL, BLUE);
+            int points_spinner[10];
+            for (int j = 0; j < 4; j++) {
+                points_spinner[j * 2] = enemies[i].x + size * cos(j * PI / 2 + enemies[i].zigzagTimer);
+                points_spinner[j * 2 + 1] = enemies[i].y + size * sin(j * PI / 2 + enemies[i].zigzagTimer);
+            }
+            points_spinner[8] = points_spinner[0];
+            points_spinner[9] = points_spinner[1];
+            fillpoly(5, points_spinner);
+            setcolor(WHITE);
+            drawpoly(5, points_spinner);
+            break;
+        }
+
+        case 8: // Stealth
+        {
+            setcolor(LIGHTGRAY);
+            setfillstyle(SOLID_FILL, DARKGRAY);
+            int points_stealth[8];
+            points_stealth[0] = enemies[i].x + size * cos(angle + 0.5);
+            points_stealth[1] = enemies[i].y + size * sin(angle + 0.5);
+            points_stealth[2] = enemies[i].x + size * cos(angle + 3.14);
+            points_stealth[3] = enemies[i].y + size * sin(angle + 3.14);
+            points_stealth[4] = enemies[i].x + size * cos(angle - 0.5);
+            points_stealth[5] = enemies[i].y + size * sin(angle - 0.5);
+            points_stealth[6] = points_stealth[0];
+            points_stealth[7] = points_stealth[1];
+            fillpoly(4, points_stealth);
+            setcolor(WHITE);
+            drawpoly(4, points_stealth);
+            break;
+        }
+
+        case 9: // Kamikaze
+            setcolor(YELLOW);
+            setfillstyle(SOLID_FILL, LIGHTRED);
+            fillellipse(enemies[i].x, enemies[i].y, size, size);
+            setcolor(WHITE);
+            circle(enemies[i].x, enemies[i].y, size);
+            break;
+
+        case 10: // Dodger
+        {
+            setcolor(LIGHTCYAN);
+            setfillstyle(SOLID_FILL, CYAN);
+            int points_dodger[10];
+            for (int j = 0; j < 4; j++) {
+                points_dodger[j * 2] = enemies[i].x + size * cos(j * PI / 2);
+                points_dodger[j * 2 + 1] = enemies[i].y + size * sin(j * PI / 2);
+            }
+            points_dodger[8] = points_dodger[0];
+            points_dodger[9] = points_dodger[1];
+            fillpoly(5, points_dodger);
+            setcolor(WHITE);
+            drawpoly(5, points_dodger);
+            break;
+        }
+
+        case 11: // Blaster
+            setcolor(MAGENTA);
+            setfillstyle(SOLID_FILL, LIGHTMAGENTA);
+            rectangle(enemies[i].x - size, enemies[i].y - size * 0.7, enemies[i].x + size, enemies[i].y + size * 0.7);
+            floodfill(enemies[i].x, enemies[i].y, MAGENTA);
+            setcolor(WHITE);
+            rectangle(enemies[i].x - size, enemies[i].y - size * 0.7, enemies[i].x + size, enemies[i].y + size * 0.7);
+            break;
+
+        case 12: // Swarmer
+            setcolor(GREEN);
+            setfillstyle(SOLID_FILL, LIGHTGREEN);
+            fillellipse(enemies[i].x, enemies[i].y, size * 0.7, size * 0.7);
+            setcolor(WHITE);
+            circle(enemies[i].x, enemies[i].y, size * 0.7);
+            break;
+
+        case 13: // Phantom (Bong Tuyet Koch xoay)
+        {
+            // enemies[i].zigzagTimer duoc lam goc xoay de hinh bong tuyet quay tron theo thoi gian
+            drawKochSnowflake(enemies[i].x, enemies[i].y, size + 5, 2, enemies[i].zigzagTimer, LIGHTBLUE);
+            
+            // Ve them loi nang luong phat sang o giua
+            setcolor(WHITE);
+            setfillstyle(SOLID_FILL, WHITE);
+            fillellipse(enemies[i].x, enemies[i].y, 3, 3);
+            break;
+        }
+
+        case 14: // Charger
+        {
+            setcolor(RED);
+            setfillstyle(SOLID_FILL, LIGHTRED);
+            int points_charger[8];
+            points_charger[0] = enemies[i].x + size * cos(angle);
+            points_charger[1] = enemies[i].y + size * sin(angle);
+            points_charger[2] = enemies[i].x + size * cos(angle + 2.8);
+            points_charger[3] = enemies[i].y + size * sin(angle + 2.8);
+            points_charger[4] = enemies[i].x + size * cos(angle - 2.8);
+            points_charger[5] = enemies[i].y + size * sin(angle - 2.8);
+            points_charger[6] = points_charger[0];
+            points_charger[7] = points_charger[1];
+            fillpoly(4, points_charger);
+            setcolor(WHITE);
+            drawpoly(4, points_charger);
+            break;
+        }
+
+        case 15: // Sniper Elite
+        {
+            setcolor(CYAN);
+            setfillstyle(SOLID_FILL, LIGHTCYAN);
+            int points_elite[14];
+            for (int j = 0; j < 6; j++) {
+                points_elite[j * 2] = enemies[i].x + size * cos(j * PI / 3);
+                points_elite[j * 2 + 1] = enemies[i].y + size * sin(j * PI / 3);
+            }
+            points_elite[12] = points_elite[0];
+            points_elite[13] = points_elite[1];
+            fillpoly(7, points_elite);
+            setcolor(WHITE);
+            drawpoly(7, points_elite);
+            break;
+        }
+
+        case 16: // Boss 1: Circle Shooter
+            setcolor(YELLOW);
+            setfillstyle(SOLID_FILL, YELLOW);
+            fillellipse(enemies[i].x, enemies[i].y, size, size);
+            setcolor(WHITE);
+            circle(enemies[i].x, enemies[i].y, size);
+            setcolor(RED);
+            circle(enemies[i].x, enemies[i].y, size * 0.8);
+            break;
+
+        case 17: // Boss 2: Grid Shooter
+            setcolor(MAGENTA);
+            setfillstyle(SOLID_FILL, LIGHTMAGENTA);
+            rectangle(enemies[i].x - size, enemies[i].y - size, enemies[i].x + size, enemies[i].y + size);
+            floodfill(enemies[i].x, enemies[i].y, MAGENTA);
+            setcolor(WHITE);
+            rectangle(enemies[i].x - size, enemies[i].y - size, enemies[i].x + size, enemies[i].y + size);
+            setcolor(YELLOW);
+            circle(enemies[i].x, enemies[i].y, size * 0.5);
+            break;
+
+        case 18: // Boss 3: Summoner
+        {
+            setcolor(CYAN);
+            setfillstyle(SOLID_FILL, LIGHTCYAN);
+            int points_boss3[16];
+            for (int j = 0; j < 7; j++) {
+                points_boss3[j * 2] = enemies[i].x + size * cos(j * 2 * PI / 7);
+                points_boss3[j * 2 + 1] = enemies[i].y + size * sin(j * 2 * PI / 7);
+            }
+            points_boss3[14] = points_boss3[0];
+            points_boss3[15] = points_boss3[1];
+            fillpoly(8, points_boss3);
+            setcolor(WHITE);
+            drawpoly(8, points_boss3);
+            break;
+        }
+
+        case 19: // Boss 4: Spiral Shooter
+            setcolor(RED);
+            setfillstyle(SOLID_FILL, LIGHTRED);
+            fillellipse(enemies[i].x, enemies[i].y, size, size * 0.8);
+            setcolor(WHITE);
+            circle(enemies[i].x, enemies[i].y, size);
+            setcolor(YELLOW);
+            circle(enemies[i].x, enemies[i].y, size * 0.6);
+            break;
+        }
+    }
+}
+
+void drawPowerUps() {
+    for (int i = 0; i < MAX_POWERUPS; i++) {
+        if (!powerUps[i].active) continue;
+
+        int px = powerUps[i].x;
+        int py = powerUps[i].y;
+
+        switch (powerUps[i].type) {
+            case 1: 
+            {
+                setcolor(YELLOW);
+                setfillstyle(SOLID_FILL, YELLOW);
+                for (float t = -1.57; t <= 1.57; t += 0.15) {
+                    int cx = px + sin(t) * 14; 
+                    int cy = py + cos(t) * 8;  
+                    int r = (int)(6 * (1.0 - fabs(t) / 1.57)); 
+                    if (r < 1) r = 1;
+                    fillellipse(cx, cy, r, r);
+                }
+                setcolor(BROWN);
+                setfillstyle(SOLID_FILL, BROWN);
+                fillellipse(px + 14, py, 2, 2);
+                break;
+            }
+            case 2: 
+            {
+                setcolor(LIGHTCYAN);
+                setfillstyle(SOLID_FILL, LIGHTCYAN);
+                int lightning[14] = {
+                    px + 2, py - 8, px - 6, py + 2, px, py + 2,
+                    px - 2, py + 8, px + 6, py - 2, px, py - 2,
+                    px + 2, py - 8
+                };
+                fillpoly(7, lightning);
+                break;
+            }
+            case 3: 
+            {
+                setcolor(LIGHTRED);
+                setfillstyle(SOLID_FILL, LIGHTRED);
+                fillellipse(px - 4, py - 3, 4, 4); 
+                fillellipse(px + 4, py - 3, 4, 4); 
+                int heart_bottom[8] = {
+                    px - 8, py - 2, px + 8, py - 2, 
+                    px, py + 7, px - 8, py - 2
+                };
+                fillpoly(4, heart_bottom);
+                break;
+            }
+            case 4: 
+            {
+                setcolor(LIGHTBLUE);
+                setfillstyle(SOLID_FILL, LIGHTBLUE);
+                int shield[12] = {
+                    px - 7, py - 6, px + 7, py - 6, px + 7, py + 2, 
+                    px, py + 9, px - 7, py + 2, px - 7, py - 6
+                };
+                fillpoly(6, shield);
+                setcolor(WHITE);
+                line(px, py - 4, px, py + 2);
+                line(px - 3, py - 1, px + 3, py - 1);
+                break;
+            }
+            case 5: 
+            {
+                setcolor(LIGHTRED);
+                setfillstyle(SOLID_FILL, LIGHTRED);
+                fillellipse(px - 6, py, 8, 10); 
+                fillellipse(px + 6, py, 8, 10); 
+                setcolor(BROWN);
+                line(px, py - 8, px, py - 16);
+                setcolor(LIGHTGREEN);
+                setfillstyle(SOLID_FILL, LIGHTGREEN);
+                fillellipse(px + 7, py - 12, 5, 3);
+                break;
+            }
+            case 6: 
+            {
+                setcolor(WHITE);
+                setfillstyle(SOLID_FILL, LIGHTCYAN);
+                fillellipse(px - 3, py - 3, 6, 6);
+                setcolor(YELLOW);
+                setfillstyle(SOLID_FILL, YELLOW);
+                fillellipse(px - 3, py - 3, 2, 2);
+                setcolor(BROWN);
+                line(px + 1, py + 1, px + 7, py + 7);
+                line(px + 2, py + 1, px + 8, py + 7);
+                line(px + 1, py + 2, px + 7, py + 8);
+                break;
+            }
+            case 7: 
+            {
+                setcolor(LIGHTMAGENTA);
+                setfillstyle(SOLID_FILL, LIGHTMAGENTA);
+                int star[22];
+                for (int j = 0; j < 10; j++) {
+                    float angle = j * PI / 5 - PI / 2;
+                    int r = (j % 2 == 0) ? 10 : 4; 
+                    star[j * 2] = px + cos(angle) * r;
+                    star[j * 2 + 1] = py + sin(angle) * r;
+                }
+                star[20] = star[0]; 
+                star[21] = star[1];
+                fillpoly(11, star);
+                break;
+            }
+            case 8: 
+            {
+                int r = 6; 
+                const int BODY_FILL_COLOR = GREEN;
+                const int LINE_COLOR = LIGHTGREEN;
+                const int COCKPIT_FILL_COLOR = DARKGRAY;
+                const int POD_FILL_COLOR = LIGHTGREEN;
+
+                setcolor(LINE_COLOR);
+                setfillstyle(SOLID_FILL, BODY_FILL_COLOR);
+
+                int body_points[] = {
+                    px, py - (int)(r * 1.6),            
+                    px - (int)(r * 0.4), py - (int)(r * 1.3), 
+                    px - (int)(r * 0.3), py - (int)(r * 0.4), 
+                    px - (int)(r * 0.3), py + (int)(r * 0.8), 
+                    px + (int)(r * 0.3), py + (int)(r * 0.8), 
+                    px + (int)(r * 0.3), py - (int)(r * 0.4), 
+                    px + (int)(r * 0.4), py - (int)(r * 1.3), 
+                    px, py - (int)(r * 1.6)              
+                };
+                fillpoly(8, body_points);
+
+                int left_wing[] = {
+                    px - (int)(r * 0.3), py - (int)(r * 0.3), 
+                    px - (int)(r * 1.5), py + (int)(r * 0.2), 
+                    px - (int)(r * 1.5), py + (int)(r * 0.9), 
+                    px - (int)(r * 0.3), py + (int)(r * 0.7), 
+                    px - (int)(r * 0.3), py - (int)(r * 0.3)  
+                };
+                fillpoly(5, left_wing);
+
+                int right_wing[] = {
+                    px + (int)(r * 0.3), py - (int)(r * 0.3), 
+                    px + (int)(r * 1.5), py + (int)(r * 0.2), 
+                    px + (int)(r * 1.5), py + (int)(r * 0.9), 
+                    px + (int)(r * 0.3), py + (int)(r * 0.7), 
+                    px + (int)(r * 0.3), py - (int)(r * 0.3)  
+                };
+                fillpoly(5, right_wing);
+
+                int cockpit_points[] = {
+                    px, py - (int)(r * 0.9),            
+                    px - (int)(r * 0.1), py - (int)(r * 0.8), 
+                    px - (int)(r * 0.1), py - (int)(r * 0.6), 
+                    px + (int)(r * 0.1), py - (int)(r * 0.6), 
+                    px + (int)(r * 0.1), py - (int)(r * 0.8), 
+                    px, py - (int)(r * 0.9)            
+                };
+                setfillstyle(SOLID_FILL, COCKPIT_FILL_COLOR);
+                fillpoly(6, cockpit_points);
+
+                setfillstyle(SOLID_FILL, BODY_FILL_COLOR);
+                setcolor(LINE_COLOR);
+                
+                int left_tail[] = {
+                    px - (int)(r * 0.1), py + (int)(r * 0.7), 
+                    px - (int)(r * 0.6), py + (int)(r * 1.1), 
+                    px - (int)(r * 0.2), py + (int)(r * 1.2), 
+                    px - (int)(r * 0.1), py + (int)(r * 1.1)  
+                };
+                fillpoly(4, left_tail);
+                
+                int right_tail[] = {
+                    px + (int)(r * 0.1), py + (int)(r * 0.7), 
+                    px + (int)(r * 0.6), py + (int)(r * 1.1), 
+                    px + (int)(r * 0.2), py + (int)(r * 1.2), 
+                    px + (int)(r * 0.1), py + (int)(r * 1.1)  
+                };
+                fillpoly(4, right_tail);
+
+                bar(px - (int)(r * 0.15), py + (int)(r * 1.2), px - (int)(r * 0.05), py + (int)(r * 1.3));
+                bar(px + (int)(r * 0.05), py + (int)(r * 1.2), px + (int)(r * 0.15), py + (int)(r * 1.3));
+
+                setfillstyle(SOLID_FILL, POD_FILL_COLOR);
+                int left_pod[] = {
+                    px - (int)(r * 0.7), py + (int)(r * 0.4), 
+                    px - (int)(r * 0.9), py + (int)(r * 0.5), 
+                    px - (int)(r * 0.9), py + (int)(r * 0.8), 
+                    px - (int)(r * 0.7), py + (int)(r * 0.9)  
+                };
+                fillpoly(4, left_pod);
+                
+                int right_pod[] = {
+                    px + (int)(r * 0.7), py + (int)(r * 0.4), 
+                    px + (int)(r * 0.9), py + (int)(r * 0.5), 
+                    px + (int)(r * 0.9), py + (int)(r * 0.8), 
+                    px + (int)(r * 0.7), py + (int)(r * 0.9)  
+                };
+                fillpoly(4, right_pod);
+
+                int flameLen = (int)(r * 0.3) + rand() % ((int)(r * 0.2) + 1);
+                
+                setcolor(LIGHTRED);
+                setfillstyle(SOLID_FILL, YELLOW);
+                
+                int fire_left[] = {
+                    px - (int)(r * 0.15), py + (int)(r * 1.3),
+                    px - (int)(r * 0.10), py + (int)(r * 1.3) + flameLen,
+                    px - (int)(r * 0.05), py + (int)(r * 1.3),
+                    px - (int)(r * 0.15), py + (int)(r * 1.3) 
+                };
+                fillpoly(4, fire_left);
+
+                int fire_right[] = {
+                    px + (int)(r * 0.05), py + (int)(r * 1.3),
+                    px + (int)(r * 0.10), py + (int)(r * 1.3) + flameLen,
+                    px + (int)(r * 0.15), py + (int)(r * 1.3),
+                    px + (int)(r * 0.05), py + (int)(r * 1.3)
+                };
+                fillpoly(4, fire_right);
+                
+                setcolor(WHITE);
+                circle(px, py, 14); 
+                break;
+            }
+        }
+    }
+}
+
+void drawParticles() {
+    for (int i = 0; i < MAX_PARTICLES; i++) {
+        if (particles[i].active) {
+            if (particles[i].type == 1) {
+                // Ve Shockwave
+                setcolor(particles[i].life > 6 ? WHITE : LIGHTCYAN); 
+                circle(particles[i].x, particles[i].y, (int)particles[i].size);
+                circle(particles[i].x, particles[i].y, (int)particles[i].size - 1); 
+            } else {
+                // Ve tia lua vang
+                int col = particles[i].color;
+                
+                // Hat nguoi dan
+                if (particles[i].life < particles[i].maxLife / 3) {
+                    col = DARKGRAY; 
+                } else if (particles[i].life < particles[i].maxLife / 2 && col == WHITE) {
+                    col = YELLOW;   
+                }
+                
+                setcolor(col);
+                setfillstyle(SOLID_FILL, col);
+                
+                int r = (int)(particles[i].size * ((float)particles[i].life / particles[i].maxLife));
+                if (r < 1) r = 1;
+                
+                fillellipse(particles[i].x, particles[i].y, r, r);
+            }
+        }
+    }
+}
+
+void drawLaser() {
+    if (player.laserTimer > 0) {
+        int x = player.x;
+        int y_top = 0; 
+        int y_bottom = player.y - (int)(player.radius * 1.6);
+        int width = 30; 
+
+        setfillstyle(SOLID_FILL, (rand() % 2) ? RED : LIGHTRED);
+        bar(x - width/2, y_top, x + width/2, y_bottom);
+
+        setfillstyle(SOLID_FILL, YELLOW);
+        bar(x - width/4, y_top, x + width/4, y_bottom);
+
+        setcolor(WHITE);
+        line(x, y_top, x, y_bottom);
+        
+        setcolor(LIGHTRED);
+        circle(x, y_bottom, rand() % 15 + 5);
+    }
+}
+
 void drawUI() {
     setcolor(LIGHTCYAN);
     settextstyle(DEFAULT_FONT, HORIZ_DIR, 2);
+    
     char scoreText[20];
-    sprintf(scoreText, "Score: %d", score);
-    outtextxy(10, 10, scoreText); // Bi?n char m?ng truy?n vào bình thu?ng
+    sprintf(scoreText, "Diem: %d", score);
+    outtextxy(10, 10, scoreText); 
     
     char livesText[20];
     sprintf(livesText, "Mang: %d", player.lives);
@@ -2390,9 +1979,9 @@ void drawUI() {
     sprintf(levelText, "Moc: %d", difficultyLevel);
     outtextxy(10, 100, levelText);
 
-    // ===== THÊM ÐO?N THÔNG BÁO NÀY VÀO ÐÂY =====
+    // Thong bao khu vuc an toan (Chuyen cap)
     if (levelTransitionTimer > 0 && !gameOver) {
-        levelTransitionTimer -= 0.02; // Ð?m ngu?c th?i gian
+        levelTransitionTimer -= 0.02; 
         
         setcolor(YELLOW);
         settextstyle(DEFAULT_FONT, HORIZ_DIR, 4);
@@ -2400,20 +1989,20 @@ void drawUI() {
         
         if (difficultyLevel == 4) {
             sprintf(lvlMsg, "CAP DO CUOI CUNG!");
-            // Can gi?a ch? dài
             outtextxy(SCREEN_WIDTH / 2 - 200, SCREEN_HEIGHT / 2 - 50, lvlMsg); 
         } else {
             sprintf(lvlMsg, "CAP DO %d", difficultyLevel);
-            // Can gi?a ch? ng?n
             outtextxy(SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2 - 50, lvlMsg); 
         }
+        
+        setcolor(WHITE);
+        settextstyle(DEFAULT_FONT, HORIZ_DIR, 2);
+        outtextxy(SCREEN_WIDTH / 2 - 110, SCREEN_HEIGHT / 2 + 10, (char*)"Khu vuc an toan...");
     }
-    // ===========================================
 
     if (gameOver) {
         setcolor(LIGHTRED);
         settextstyle(DEFAULT_FONT, HORIZ_DIR, 3);
-        // THÊM (char*) VÀO TRU?C CÁC CHU?I C? Ð?NH
         outtextxy(SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2 - 30, (char*)"Ket Thuc!");
         
         char finalScore[30];
@@ -2421,44 +2010,31 @@ void drawUI() {
         outtextxy(SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 + 10, finalScore);
         
         outtextxy(SCREEN_WIDTH / 2 - 140, SCREEN_HEIGHT / 2 + 50, (char*)"Nhan R de Choi Lai");
-    } else if (gameWon) {
-        setcolor(LIGHTGREEN);
-        settextstyle(DEFAULT_FONT, HORIZ_DIR, 3);
-        
-        outtextxy(SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 - 30, (char*)"Chien Thang!");
-        
-        char finalScore[30];
-        sprintf(finalScore, "Diem Cuoi: %d", score);
-        outtextxy(SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 + 10, finalScore);
-        
-        outtextxy(SCREEN_WIDTH / 2 - 140, SCREEN_HEIGHT / 2 + 50, (char*)"Nhan R de Choi Lai");
-    }
+    } 
 }
 
-
-// Hàm chính
-// Hàm chính
+// HAM CHINH (MAIN)
 int main() {
-    // Kh?i t?o d? h?a v?i c?a s? chu?n
-    initwindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Space Shooter Game");
-    srand(time(NULL));
+    // Khoi tao do hoa voi kich thuoc man hinh chuan
+    initwindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Space Shooter Game - Vo Tan");
+    srand((unsigned int)time(NULL));
 
     initGame();
 
-    int page = 0; // Ph?c v? cho Double Buffering (ch?ng nháy màn hình)
+    int page = 0; // Dung cho Double Buffering (Chong nhay man hinh)
 
     while (1) {
-        setactivepage(page); // V? lên trang ?n
+        setactivepage(page); // Ve len trang an
 
-        // B? gameWon di vì game gi? là vô t?n, ch? xét gameOver
+        // Nhan R de choi lai khi Game Over
         if (gameOver && (GetAsyncKeyState('R') & 0x8000)) {
-            mciSendString("stop laser_sound", NULL, 0, NULL); // D?ng laser ngay l?p t?c
+            mciSendString("stop laser_sound", NULL, 0, NULL); 
             isLaserSoundPlaying = false;
             initGame();
         }
         if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) break;
 
-        // ===== CH? C?P NH?T T?A Ð? / CHUY?N Ð?NG KHI GAME CHUA OVER =====
+        // --- CHI CAP NHAT TOA DO / LOGIC KHI GAME CHUA OVER ---
         if (!gameOver) {
             updateStars();
             updatePlayer();
@@ -2471,14 +2047,14 @@ int main() {
             checkCollisions();
         }
 
-        // ===== CÁC HÀM DRAW V?N CH?Y BÌNH THU?NG Ð? GI? HÌNH ?NH TRÊN MÀN HÌNH =====
-        drawBackground(); // Ðã ch?a cleardevice()
+        // --- HAM VE DO HOA CHAY LIEN TUC (Giu hinh anh dong bang khi chet) ---
+        drawBackground(); 
         drawParticles();
         drawBullets();
         drawEnemies();
         drawPowerUps();
         
-        // Không v? máy bay ngu?i choi n?u dã ch?t (tùy ch?n d? t?o c?m giác tan bi?n)
+        // Neu da chet thi an may bay di
         if (!gameOver) {
             drawPlayer();
             drawCompanions();
@@ -2487,8 +2063,8 @@ int main() {
         
         drawUI();
 
-        setvisualpage(page); // Hi?n th? trang v?a v? xong
-        page = 1 - page;     // L?t trang
+        setvisualpage(page); // Hien thi trang vua ve xong
+        page = 1 - page;     // Lat trang
 
         delay(20);
     }
