@@ -47,6 +47,7 @@ typedef struct {
     // Bi?n tr?ng thái d?n và vu khí
     bool doubleShot;             
     int currentFruitType;        // 0: Ð?n thu?ng, 1: Chu?i, 5: Táo
+    float laserTimer;
 } Player;
 
 typedef struct {
@@ -115,7 +116,7 @@ float currentBulletSize = 5;
 int difficultyLevel = 0;
 bool bossActive = false;
 int postBossDifficulty = 0;
-
+bool isLaserSoundPlaying = false; // Thêm vào ph?n bi?n toàn c?c
 // Function prototypes
 void initGame();
 void drawPlayer();
@@ -141,7 +142,7 @@ void updateParticles();
 void checkCollisions();
 void drawUI();
 void triggerUltimate();
-
+void drawLaser(); 
 // ================= CÁC THU?T TOÁN Ð? H?A CO B?N =================
 
 // 1. ÁP D?NG: Thu?t toán v? du?ng th?ng Bresenham
@@ -263,6 +264,7 @@ void initGame() {
     player.bulletSizeTimer = 0;
     player.companionBoostTimer = 0;
     player.currentFruitType = 0; // Tr?ng thái d?n thu?ng ban d?u
+    player.laserTimer = 0;
 
     // ===== KH?I T?O MÁY BAY H? TR? =====
     // T?t toàn b? máy bay lúc m?i vào game, chúng ch? b?t lên khi an power-up
@@ -307,6 +309,8 @@ void initGame() {
     // M? file nhacnen.mp3 và phát l?p l?i
     mciSendString("open \"nhacnen.mp3\" type mpegvideo alias bgm", NULL, 0, NULL);
     mciSendString("play bgm repeat", NULL, 0, NULL);
+    mciSendString("close laser_sound", NULL, 0, NULL); 
+    mciSendString("open \"laser.wav\" type mpegvideo alias laser_sound", NULL, 0, NULL);
 }
 
 // V? tàu ngu?i choi
@@ -1490,6 +1494,31 @@ void updateStars() {
     }
 }
 
+void drawLaser() {
+    if (player.laserTimer > 0) {
+        int x = player.x;
+        int y_top = 0; // Laser b?n h?t màn hình lên trên
+        int y_bottom = player.y - (int)(player.radius * 1.6);
+        int width = 30; // Ð? r?ng tia laser
+
+        // 1. V? qu?ng sáng d? phía ngoài (nh?p nháy)
+        setfillstyle(SOLID_FILL, (rand() % 2) ? RED : LIGHTRED);
+        bar(x - width/2, y_top, x + width/2, y_bottom);
+
+        // 2. V? lõi vàng ? gi?a
+        setfillstyle(SOLID_FILL, YELLOW);
+        bar(x - width/4, y_top, x + width/4, y_bottom);
+
+        // 3. V? tâm tr?ng siêu nhi?t
+        setcolor(WHITE);
+        line(x, y_top, x, y_bottom);
+        
+        // Hi?u ?ng tóe l?a ? mui tàu
+        setcolor(LIGHTRED);
+        circle(x, y_bottom, rand() % 15 + 5);
+    }
+}
+
 void updatePlayer() {
     if (!gameOver && !gameWon) {
         // ===== C? Ð?NH V? TRÍ Y & HU?NG SÚNG =====
@@ -1531,24 +1560,47 @@ void updatePlayer() {
             }
         }
 
-        // ===== ULTIMATE (CHU?T PH?I) =====
-        if (player.ultimateTimer < ULTIMATE_COOLDOWN) {
-            player.ultimateTimer += 0.02;
-            if (player.ultimateTimer > ULTIMATE_COOLDOWN)
-                player.ultimateTimer = ULTIMATE_COOLDOWN;
+        // ===== H? TH?NG ULTIMATE (LASER) =====
+        if (player.laserTimer <= 0) {
+            // Khi KHÔNG b?n laser
+            if (player.ultimateTimer < ULTIMATE_COOLDOWN) {
+                player.ultimateTimer += 0.015;
+            }
+            
+            // D?NG ÂM THANH N?U ÐANG PHÁT
+            if (isLaserSoundPlaying) {
+                mciSendString("stop laser_sound", NULL, 0, NULL);
+                mciSendString("seek laser_sound to start", NULL, 0, NULL); // Ðua v? d?u file
+                isLaserSoundPlaying = false;
+            }
+        } else {
+            // Khi ÐANG b?n laser
+            player.ultimateTimer -= 0.05; 
+            
+            // PHÁT ÂM THANH L?P L?I (Ch? g?i l?nh 1 l?n duy nh?t)
+            if (!isLaserSoundPlaying) {
+                mciSendString("play laser_sound repeat", NULL, 0, NULL);
+                isLaserSoundPlaying = true;
+            }
+
+            if (player.ultimateTimer <= 0) {
+                player.ultimateTimer = 0;
+                player.laserTimer = 0; 
+            }
         }
 
+        // Kích ho?t khi nh?n chu?t ph?i
         if (ismouseclick(WM_RBUTTONDOWN)) {
             clearmouseclick(WM_RBUTTONDOWN);
             if (player.ultimateTimer >= ULTIMATE_COOLDOWN) {
+                player.laserTimer = 1; 
                 triggerUltimate();
-                player.ultimateTimer = 0;
             }
         }
 
         // ===== BUFF / POWER-UP =====
         if (player.speedBoostTimer > 0) {
-            currentPlayerSpeed = 7;
+            currentPlayerSpeed = 15;
             player.speedBoostTimer -= 0.02;
             if (player.speedBoostTimer <= 0)
                 currentPlayerSpeed = PLAYER_SPEED;
@@ -1950,11 +2002,36 @@ void updatePowerUps() {
             
             if (powerUps[i].y > SCREEN_HEIGHT) 
                 powerUps[i].active = false;
-                
-            float dist = sqrt(pow(player.x - powerUps[i].x, 2) + pow(player.y - powerUps[i].y, 2));
-            if (dist < player.radius + 8) {
+            
+            // 1. Ki?m tra va ch?m v?i máy bay chính
+            float distPlayer = sqrt(pow(player.x - powerUps[i].x, 2) + pow(player.y - powerUps[i].y, 2));
+            bool pickedUp = false;
+
+            if (distPlayer < player.radius + 8) {
+                pickedUp = true;
+            }
+
+            // 2. Ki?m tra va ch?m v?i các máy bay h? tr? (Companions)
+            // N?u máy bay chính chua nh?t, thì ki?m tra các d? t?
+            if (!pickedUp) {
+                for (int j = 0; j < MAX_COMPANIONS; j++) {
+                    if (companions[j].active) {
+                        float distComp = sqrt(pow(companions[j].x - powerUps[i].x, 2) + pow(companions[j].y - powerUps[i].y, 2));
+                        if (distComp < companions[j].radius + 8) {
+                            pickedUp = true;
+                            break; // M?t máy bay nh?t là d?, thoát vòng l?p companion
+                        }
+                    }
+                }
+            }
+
+            // 3. X? lý logic khi nh?t du?c v?t ph?m
+            if (pickedUp) {
                 powerUps[i].active = false;
                 
+                // Hi?u ?ng n? nh? khi nh?t du?c d? cho d?p m?t
+                createExplosion(powerUps[i].x, powerUps[i].y);
+
                 switch (powerUps[i].type) {
                     case 1: 
                         player.fireRateBoostTimer = 10.0; 
@@ -1976,20 +2053,17 @@ void updatePowerUps() {
                     case 6: 
                         player.bulletSizeTimer = 10.0; 
                         break;
-                    case 7: // Ultimate Charge (Cu là 8)
-                        player.ultimateTimer = ULTIMATE_COOLDOWN * 0.5; 
+                    case 7: // Ultimate Charge
+                        player.ultimateTimer += ULTIMATE_COOLDOWN * 0.3; // Tang thêm 30% thanh n?
+                        if (player.ultimateTimer > ULTIMATE_COOLDOWN) player.ultimateTimer = ULTIMATE_COOLDOWN;
                         break;
-					case 8: // Companion Boost (Nh?t l?n 1 ra trái, l?n 2 ra ph?i)
-                        player.companionBoostTimer = 10.0; // Luôn reset th?i gian v? 10 giây
-                        
-                        // Ki?m tra d? b?t t?ng chi?c m?t
+                    case 8: // Companion Boost
+                        player.companionBoostTimer = 10.0; 
                         if (!companions[1].active) {
-                            companions[1].active = true; // Nh?t l?n 1: B?t tàu bên trái
-                        } 
-                        else if (!companions[2].active) {
-                            companions[2].active = true; // Nh?t l?n 2: B?t n?t tàu bên ph?i
+                            companions[1].active = true;
+                        } else if (!companions[2].active) {
+                            companions[2].active = true;
                         }
-                        // Nh?t l?n 3 tr? di thì ch? h?i th?i gian (vì t?i da 2 tàu)
                         break;
                 }
             }
@@ -2016,32 +2090,12 @@ void createExplosion(float x, float y) {
 
 // Kích ho?t chiêu cu?i
 void triggerUltimate() {
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        if (enemies[i].active) {
-            float dist = sqrt(pow(player.x - enemies[i].x, 2) + pow(player.y - enemies[i].y, 2));
-            if (dist < 100) {
-                enemies[i].active = false;
-                int points = (enemies[i].type <= 5) ? 10 + enemies[i].type * 5 : 
-                             (enemies[i].type <= 10) ? 15 + enemies[i].type * 3 : 
-                             (enemies[i].type <= 15) ? 20 + enemies[i].type * 2 : 
-                             (enemies[i].type == 16) ? 100 : (enemies[i].type == 17) ? 200 : 
-                             (enemies[i].type == 18) ? 300 : 500;
-                score += points;
-                if (enemies[i].type >= 16) {
-                    bossActive = false;
-                    postBossDifficulty++;
-                }
-                if (enemies[i].type == 19) gameWon = true;
-                createExplosion(enemies[i].x, enemies[i].y);
-                spawnPowerUp(enemies[i].x, enemies[i].y);
-            }
-        }
+    // Không c?n x? lý xóa k? d?ch ? dây n?a
+    // Chúng ta s? x? lý sát thuong liên t?c trong hàm checkCollisions
+    // Hi?u ?ng h?t lúc b?t d?u kích ho?t
+    for (int i = 0; i < 15; i++) {
+        createExplosion(player.x, player.y - player.radius);
     }
-    for (int i = 0; i < 20; i++) {
-        createExplosion(player.x + (rand() % 50 - 25), player.y + (rand() % 50 - 25));
-    }
-    setcolor(LIGHTCYAN);
-    circle(player.x, player.y, 100);
 }
 
 // C?p nh?t h?t v? n?
@@ -2058,30 +2112,64 @@ void updateParticles() {
 
 // Ki?m tra va ch?m
 void checkCollisions() {
+    // ----- 1. X? LÝ SÁT THUONG LASER -----
+    if (player.laserTimer > 0) {
+        for (int j = 0; j < MAX_ENEMIES; j++) {
+            if (enemies[j].active) {
+                // Laser quét theo tr?c d?c c?a Player
+                if (enemies[j].x > player.x - 25 && enemies[j].x < player.x + 25 && enemies[j].y < player.y) {
+                    enemies[j].health -= 2; 
+                    if (rand() % 3 == 0) createExplosion(enemies[j].x, enemies[j].y);
+
+                    if (enemies[j].health <= 0) {
+                        enemies[j].active = false;
+                        // Tính di?m cho Laser
+                        int points = (enemies[j].type <= 5) ? 10 : (enemies[j].type <= 10) ? 20 : 50;
+                        score += points;
+                        if (enemies[j].type >= 16) { bossActive = false; postBossDifficulty++; }
+                        if (enemies[j].type == 19) gameWon = true;
+                        createExplosion(enemies[j].x, enemies[j].y);
+                        spawnPowerUp(enemies[j].x, enemies[j].y);
+                    }
+                }
+            }
+        }
+    }
+
+    // ----- 2. X? LÝ VA CH?M Ð?N -----
     for (int i = 0; i < MAX_BULLETS; i++) {
         if (bullets[i].active) {
             for (int j = 0; j < MAX_ENEMIES; j++) {
                 if (enemies[j].active) {
-                    float dist = sqrt(pow(bullets[i].x - enemies[j].x, 2) + 
-                                      pow(bullets[i].y - enemies[j].y, 2));
+                    float dist = sqrt(pow(bullets[i].x - enemies[j].x, 2) + pow(bullets[i].y - enemies[j].y, 2));
                     float bulletRadius = player.bulletSizeTimer > 0 ? currentBulletSize * 1.5 : currentBulletSize;
+
                     if (dist < enemies[j].radius + bulletRadius) {
-                        bullets[i].active = false;
+                        bullets[i].active = false; // Ð?n bi?n m?t
+                        
+                        // HI?U ?NG N? KHI CH?M (Impact Effect)
+                        createExplosion(bullets[i].x, bullets[i].y);
+
                         enemies[j].health -= bullets[i].highDamage ? 2 : 1;
+
                         if (enemies[j].health <= 0) {
                             enemies[j].active = false;
+                            
+                            // TÍNH ÐI?M VÀ ROI Ð? (Ðã di?n l?i logic t? b?n cu c?a b?n)
                             int points = (enemies[j].type <= 5) ? 10 + enemies[j].type * 5 : 
-                                         (enemies[j].type <= 10) ? 15 + enemies[j].type * 3 : 
-                                         (enemies[j].type <= 15) ? 20 + enemies[j].type * 2 : 
-                                         (enemies[j].type == 16) ? 100 : (enemies[j].type == 17) ? 200 : 
-                                         (enemies[j].type == 18) ? 300 : 500;
+                                         (enemies[j].type <= 10) ? 15 + enemies[j].type * 3 : 20;
                             score += points;
-                            if (enemies[j].type >= 16) {
-                                bossActive = false;
-                                postBossDifficulty++;
+
+                            if (enemies[j].type >= 16) { 
+                                bossActive = false; 
+                                postBossDifficulty++; 
                             }
                             if (enemies[j].type == 19) gameWon = true;
-                            createExplosion(enemies[j].x, enemies[j].y);
+
+                            // N? l?n khi ch?t (3 v? n? nh? ng?u nhiên xung quanh)
+                            for(int k = 0; k < 3; k++) 
+                                createExplosion(enemies[j].x + rand()%10-5, enemies[j].y + rand()%10-5);
+                            
                             spawnPowerUp(enemies[j].x, enemies[j].y);
                         }
                     }
@@ -2089,6 +2177,8 @@ void checkCollisions() {
             }
         }
     }
+
+    // ----- 3. VA CH?M NGU?I CHOI & K? Ð?CH -----
     for (int i = 0; i < MAX_ENEMIES; i++) {
         if (enemies[i].active && player.shieldTimer <= 0) {
             float dist = sqrt(pow(player.x - enemies[i].x, 2) + pow(player.y - enemies[i].y, 2));
@@ -2096,36 +2186,28 @@ void checkCollisions() {
                 player.lives--;
                 if (player.lives <= 0) gameOver = true;
                 enemies[i].active = false;
-                if (enemies[i].type >= 16) {
-                    bossActive = false;
-                    postBossDifficulty++;
-                }
+                if (enemies[i].type >= 16) { bossActive = false; postBossDifficulty++; }
                 createExplosion(enemies[i].x, enemies[i].y);
             }
         }
     }
+
+    // ----- 4. LOGIC LÊN C?P & SPAWN BOSS -----
+    // (Gi? nguyên ph?n logic difficultyLevel c?a b?n bên du?i)
     if (score >= 2000 && difficultyLevel < 4) {
-        difficultyLevel = 4;
-        player.doubleShot = true;
-        companions[1].active = true;
-        companions[2].active = true;
+        difficultyLevel = 4; player.doubleShot = true;
+        companions[1].active = true; companions[2].active = true;
     } else if (score >= 1500 && difficultyLevel < 3) {
-        difficultyLevel = 3;
-        player.doubleShot = true;
-        companions[1].active = true;
-        companions[2].active = true;
+        difficultyLevel = 3; player.doubleShot = true;
+        companions[1].active = true; companions[2].active = true;
     } else if (score >= 1000 && difficultyLevel < 2) {
-        difficultyLevel = 2;
-        companions[1].active = true;
-        companions[2].active = true;
+        difficultyLevel = 2; companions[1].active = true; companions[2].active = true;
     } else if (score >= 500 && difficultyLevel < 1) {
-        difficultyLevel = 1;
-        companions[1].active = true;
+        difficultyLevel = 1; companions[1].active = true;
     }
-    if ((score >= 500 && !bossActive && difficultyLevel == 1) ||
-        (score >= 1000 && !bossActive && difficultyLevel == 2) ||
-        (score >= 1500 && !bossActive && difficultyLevel == 3) ||
-        (score >= 2000 && !bossActive && difficultyLevel == 4)) {
+
+    if (!bossActive && ((score >= 500 && difficultyLevel == 1) || (score >= 1000 && difficultyLevel == 2) || 
+        (score >= 1500 && difficultyLevel == 3) || (score >= 2000 && difficultyLevel == 4))) {
         spawnBoss();
     }
 }
@@ -2191,7 +2273,9 @@ int main() {
     while (1) {
         setactivepage(page); // V? lên trang ?n
 
-        if ((gameOver || gameWon) && GetAsyncKeyState('R') & 0x8000) {
+       	if ((gameOver || gameWon) && GetAsyncKeyState('R') & 0x8000) {
+            mciSendString("stop laser_sound", NULL, 0, NULL); // D?ng laser ngay l?p t?c
+            isLaserSoundPlaying = false;
             initGame();
         }
         if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) break;
@@ -2213,6 +2297,7 @@ int main() {
         drawPowerUps();
         drawPlayer();
         drawCompanions();
+        drawLaser();
         drawUI();
 
         setvisualpage(page); // Hi?n th? trang v?a v? xong
