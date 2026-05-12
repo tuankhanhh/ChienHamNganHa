@@ -106,6 +106,8 @@ typedef struct {
 } Star;
 
 // Bi?n toàn c?c
+float levelTransitionTimer = 0;
+int nextBossScore = 500;
 Player player;
 Companion companions[MAX_COMPANIONS];
 Bullet bullets[MAX_BULLETS];
@@ -273,6 +275,7 @@ void initGame() {
     player.currentFruitType = 0; // Tr?ng thái d?n thu?ng ban d?u
     player.laserTimer = 0;
     player.invincibilityTimer = 0;
+    
 
     // ===== KH?I T?O MÁY BAY H? TR? =====
     // T?t toàn b? máy bay lúc m?i vào game, chúng ch? b?t lên khi an power-up
@@ -311,6 +314,9 @@ void initGame() {
     difficultyLevel = 0;
     bossActive = false;
     postBossDifficulty = 0;
+    
+    levelTransitionTimer = 0;
+    nextBossScore = 500;
 
     // ===== NH?C N?N =====
     // Ðóng nh?c cu n?u có (dùng cho tru?ng h?p nh?n R d? choi l?i)
@@ -1767,7 +1773,8 @@ void updateBullets() {
 
 // Sinh k? d?ch
 void spawnEnemy() {
-    if (gameOver || gameWon) return;
+    // Ðã thêm levelTransitionTimer > 0 vào di?u ki?n ch?n
+    if (gameOver || gameWon || levelTransitionTimer > 0) return;
 
     int spawnChance = 50 - difficultyLevel * 10 - postBossDifficulty * 5;
     if (spawnChance < 10) spawnChance = 10;
@@ -1841,7 +1848,9 @@ void spawnEnemy() {
 void spawnBoss() {
     if (bossActive) return;
     int bossType = 0;
-    if (score >= 2000) bossType = 19;
+    
+    // ? giai do?n di?m siêu cao (vô t?n), Boss s? du?c random d? t?o b?t ng?
+    if (score >= 2000) bossType = 16 + (rand() % 4); 
     else if (score >= 1500) bossType = 18;
     else if (score >= 1000) bossType = 17;
     else if (score >= 500) bossType = 16;
@@ -1945,6 +1954,7 @@ void updateEnemies() {
                                 bullets[k].dx = BULLET_SPEED * cos(angle) * 0.4;
                                 bullets[k].dy = BULLET_SPEED * sin(angle) * 0.4;
                                 bullets[k].active = true;
+                                bullets[k].isEnemy = true;
                                 break;
                             }
                         }
@@ -1966,6 +1976,7 @@ void updateEnemies() {
                                     bullets[l].dx = BULLET_SPEED * cos(angle) * 0.3;
                                     bullets[l].dy = BULLET_SPEED * sin(angle) * 0.3;
                                     bullets[l].active = true;
+                                    bullets[k].isEnemy = true;
                                     break;
                                 }
                             }
@@ -2013,6 +2024,7 @@ void updateEnemies() {
                                 bullets[k].dx = BULLET_SPEED * cos(angle) * 0.5;
                                 bullets[k].dy = BULLET_SPEED * sin(angle) * 0.5;
                                 bullets[k].active = true;
+                                bullets[k].isEnemy = true;
                                 break;
                             }
                         }
@@ -2235,7 +2247,6 @@ void checkCollisions() {
                         int points = (enemies[j].type <= 5) ? 10 : (enemies[j].type <= 10) ? 20 : 50;
                         score += points;
                         if (enemies[j].type >= 16) { bossActive = false; postBossDifficulty++; }
-                        if (enemies[j].type == 19) gameWon = true;
                         createExplosion(enemies[j].x, enemies[j].y);
                         spawnPowerUp(enemies[j].x, enemies[j].y);
                     }
@@ -2332,7 +2343,8 @@ void checkCollisions() {
     }
 
     // ----- 4. LOGIC LÊN C?P & SPAWN BOSS -----
-    // (Gi? nguyên ph?n logic difficultyLevel c?a b?n bên du?i)
+    int oldLevel = difficultyLevel; 
+
     if (score >= 2000 && difficultyLevel < 4) {
         difficultyLevel = 4; player.doubleShot = true;
         companions[1].active = true; companions[2].active = true;
@@ -2345,9 +2357,14 @@ void checkCollisions() {
         difficultyLevel = 1; companions[1].active = true;
     }
 
-    if (!bossActive && ((score >= 500 && difficultyLevel == 1) || (score >= 1000 && difficultyLevel == 2) || 
-        (score >= 1500 && difficultyLevel == 3) || (score >= 2000 && difficultyLevel == 4))) {
+    if (difficultyLevel > oldLevel) {
+        levelTransitionTimer = 3.0; 
+    }
+
+    // CH? Ð? VÔ T?N: Boss xu?t hi?n d?nh k? m?i 500 di?m
+    if (!bossActive && levelTransitionTimer <= 0 && score >= nextBossScore) {
         spawnBoss();
+        nextBossScore += 500; // C?ng d?n d? Boss ti?p theo xu?t hi?n ? 2500, 3000, 3500...
     }
 }
 
@@ -2372,6 +2389,26 @@ void drawUI() {
     char levelText[30];
     sprintf(levelText, "Moc: %d", difficultyLevel);
     outtextxy(10, 100, levelText);
+
+    // ===== THÊM ÐO?N THÔNG BÁO NÀY VÀO ÐÂY =====
+    if (levelTransitionTimer > 0 && !gameOver) {
+        levelTransitionTimer -= 0.02; // Ð?m ngu?c th?i gian
+        
+        setcolor(YELLOW);
+        settextstyle(DEFAULT_FONT, HORIZ_DIR, 4);
+        char lvlMsg[50];
+        
+        if (difficultyLevel == 4) {
+            sprintf(lvlMsg, "CAP DO CUOI CUNG!");
+            // Can gi?a ch? dài
+            outtextxy(SCREEN_WIDTH / 2 - 200, SCREEN_HEIGHT / 2 - 50, lvlMsg); 
+        } else {
+            sprintf(lvlMsg, "CAP DO %d", difficultyLevel);
+            // Can gi?a ch? ng?n
+            outtextxy(SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2 - 50, lvlMsg); 
+        }
+    }
+    // ===========================================
 
     if (gameOver) {
         setcolor(LIGHTRED);
@@ -2400,8 +2437,9 @@ void drawUI() {
 
 
 // Hàm chính
+// Hàm chính
 int main() {
-    // Kh?i t?o d? h?a v?i c?a s? chu?n thay vì fullscreen m?c d?nh c?a BGI
+    // Kh?i t?o d? h?a v?i c?a s? chu?n
     initwindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Space Shooter Game");
     srand(time(NULL));
 
@@ -2412,31 +2450,41 @@ int main() {
     while (1) {
         setactivepage(page); // V? lên trang ?n
 
-       	if ((gameOver || gameWon) && GetAsyncKeyState('R') & 0x8000) {
+        // B? gameWon di vì game gi? là vô t?n, ch? xét gameOver
+        if (gameOver && (GetAsyncKeyState('R') & 0x8000)) {
             mciSendString("stop laser_sound", NULL, 0, NULL); // D?ng laser ngay l?p t?c
             isLaserSoundPlaying = false;
             initGame();
         }
         if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) break;
 
-        updateStars();
-        updatePlayer();
-        updateCompanions();
-        updateBullets();
-        spawnEnemy();
-        updateEnemies();
-        updatePowerUps();
-        updateParticles();
-        checkCollisions();
+        // ===== CH? C?P NH?T T?A Ð? / CHUY?N Ð?NG KHI GAME CHUA OVER =====
+        if (!gameOver) {
+            updateStars();
+            updatePlayer();
+            updateCompanions();
+            updateBullets();
+            spawnEnemy();
+            updateEnemies();
+            updatePowerUps();
+            updateParticles();
+            checkCollisions();
+        }
 
+        // ===== CÁC HÀM DRAW V?N CH?Y BÌNH THU?NG Ð? GI? HÌNH ?NH TRÊN MÀN HÌNH =====
         drawBackground(); // Ðã ch?a cleardevice()
         drawParticles();
         drawBullets();
         drawEnemies();
         drawPowerUps();
-        drawPlayer();
-        drawCompanions();
-        drawLaser();
+        
+        // Không v? máy bay ngu?i choi n?u dã ch?t (tùy ch?n d? t?o c?m giác tan bi?n)
+        if (!gameOver) {
+            drawPlayer();
+            drawCompanions();
+            drawLaser();
+        }
+        
         drawUI();
 
         setvisualpage(page); // Hi?n th? trang v?a v? xong
