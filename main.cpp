@@ -220,6 +220,9 @@ void initGame() {
     mciSendString("play bgm repeat", NULL, 0, NULL);
     mciSendString("close laser_sound", NULL, 0, NULL); 
     mciSendString("open \"laser.wav\" type mpegvideo alias laser_sound", NULL, 0, NULL);
+    
+    mciSendString("close vuno_sound", NULL, 0, NULL); 
+    mciSendString("open \"vuno.wav\" type waveaudio alias vuno_sound", NULL, 0, NULL);
 }
 
 // CHUC NANG CAP NHAT (UPDATE LOGIC)
@@ -627,6 +630,9 @@ void checkCollisions() {
                     if (rand() % 3 == 0) createExplosion(enemies[j].x, enemies[j].y);
 
                     if (enemies[j].health <= 0) {
+                    	mciSendString("seek vuno_sound to start", NULL, 0, NULL);
+                        mciSendString("play vuno_sound", NULL, 0, NULL);
+                        
                         enemies[j].active = false;
                         int points = (enemies[j].type <= 5) ? 10 : (enemies[j].type <= 10) ? 20 : 50;
                         score += points;
@@ -657,6 +663,9 @@ void checkCollisions() {
                             enemies[j].health -= bullets[i].highDamage ? 2 : 1;
 
                             if (enemies[j].health <= 0) {
+                            	mciSendString("seek vuno_sound to start", NULL, 0, NULL);
+                                mciSendString("play vuno_sound", NULL, 0, NULL);
+                                
                                 enemies[j].active = false;
                                 int points = (enemies[j].type <= 5) ? 10 + enemies[j].type * 5 : 
                                              (enemies[j].type <= 10) ? 15 + enemies[j].type * 3 : 20;
@@ -703,6 +712,8 @@ void checkCollisions() {
         if (enemies[i].active && player.invincibilityTimer <= 0) {
             float dist = sqrt(pow(player.x - enemies[i].x, 2) + pow(player.y - enemies[i].y, 2));
             if (dist < player.radius + enemies[i].radius) {
+                mciSendString("seek vuno_sound to start", NULL, 0, NULL);
+                mciSendString("play vuno_sound", NULL, 0, NULL);
                 
                 if (player.shieldTimer > 0) {
                     player.shieldTimer = 0;          
