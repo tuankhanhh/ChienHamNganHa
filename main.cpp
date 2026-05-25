@@ -150,8 +150,13 @@ void drawLaser();
 void drawUI();
 
 void midpointCircle(int xc, int yc, int r, int color);
-void recursiveBoundaryFill(int x, int y, int fill_color, int boundary_color);
+void midpointLine(int x1, int y1, int x2, int y2, int color);
+
 void bresenhamLine(int x1, int y1, int x2, int y2, int color);
+void bresenhamCircle(int xc, int yc, int r, int color);
+
+void recursiveBoundaryFill(int x, int y, int fill_color, int boundary_color);
+
 void drawKochLine(float x1, float y1, float x2, float y2, int iter, int color);
 void drawKochSnowflake(int x, int y, int radius, int iter, float angle, int color);
 
@@ -1044,17 +1049,60 @@ void midpointCircle(int xc, int yc, int r, int color) {
     }
 }
 
+void midpointLine(int x1, int y1, int x2, int y2, int color) {
+    int dx = abs(x2 - x1);
+    int dy = abs(y2 - y1);
+    int sx = (x1 < x2) ? 1 : -1;
+    int sy = (y1 < y2) ? 1 : -1;
+    
+    int isSwap = 0;
+    // Neu do doc > 45 do, hoan vi dx va dy de dam bao dx luon lon nhat
+    if (dy > dx) {
+        int temp = dx; dx = dy; dy = temp;
+        isSwap = 1;
+    }
+    
+    // Cac bien quyet dinh cua Midpoint
+    int d = 2 * dy - dx;
+    int incE = 2 * dy;
+    int incNE = 2 * (dy - dx);
+    
+    int x = x1, y = y1;
+    putpixel(x, y, color);
+    
+    for (int i = 1; i <= dx; i++) {
+        if (d < 0) {
+            d += incE;
+            if (isSwap) y += sy; // Neu da hoan vi, bien di chuyen doc lap la y
+            else x += sx;
+        } else {
+            d += incNE;
+            x += sx;
+            y += sy;
+        }
+        putpixel(x, y, color);
+    }
+}
+
 // Thuat toan Boundary Fill de to mau
 void recursiveBoundaryFill(int x, int y, int fill_color, int boundary_color) {
+    // 1. Kiem tra dieu kien dung: Toa do nam ngoai gioi han man hinh
     if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT) return;
 
+    // 2. Lay ma mau cua diem anh (pixel) hien tai
     int current_color = getpixel(x, y);
+
+    // 3. Kiem tra dieu kien to: Chua cham vao duong bien va chua duoc to mau nay
     if (current_color != boundary_color && current_color != fill_color) {
-        putpixel(x, y, fill_color);
-        recursiveBoundaryFill(x + 1, y, fill_color, boundary_color);
-        recursiveBoundaryFill(x - 1, y, fill_color, boundary_color);
-        recursiveBoundaryFill(x, y + 1, fill_color, boundary_color);
-        recursiveBoundaryFill(x, y - 1, fill_color, boundary_color);
+        
+        // To mau cho pixel hien tai
+        putpixel(x, y, fill_color); 
+
+        // 4. Goi de quy lan toa ra 4 huong lan can (Pixel luy tuyen)
+        recursiveBoundaryFill(x + 1, y, fill_color, boundary_color); // Sang phai
+        recursiveBoundaryFill(x - 1, y, fill_color, boundary_color); // Sang trai
+        recursiveBoundaryFill(x, y + 1, fill_color, boundary_color); // Xuong duoi
+        recursiveBoundaryFill(x, y - 1, fill_color, boundary_color); // Len tren
     }
 }
 // Thuat toan ve duong thang Bresenham
@@ -1074,9 +1122,34 @@ void bresenhamLine(int x1, int y1, int x2, int y2, int color) {
     }
 }
 
+void bresenhamCircle(int xc, int yc, int r, int color) {
+    int x = 0, y = r;
+    int d = 3 - 2 * r; // Bien quyet dinh cua Bresenham
+
+    while (y >= x) {
+        // Ve 8 diem doi xung
+        putpixel(xc + x, yc + y, color);
+        putpixel(xc - x, yc + y, color);
+        putpixel(xc + x, yc - y, color);
+        putpixel(xc - x, yc - y, color);
+        putpixel(xc + y, yc + x, color);
+        putpixel(xc - y, yc + x, color);
+        putpixel(xc + y, yc - x, color);
+        putpixel(xc - y, yc - x, color);
+
+        x++;
+        if (d > 0) {
+            y--;
+            d = d + 4 * (x - y) + 10;
+        } else {
+            d = d + 4 * x + 6;
+        }
+    }
+}
 // Thuat toan de quy ve duong cong Koch
 void drawKochLine(float x1, float y1, float x2, float y2, int iter, int color) {
     if (iter == 0) {
+    	// Ap dung thuat toan BresenhamLine
         bresenhamLine((int)x1, (int)y1, (int)x2, (int)y2, color);
     } else {
         float dx = (x2 - x1) / 3.0f;
@@ -1090,7 +1163,7 @@ void drawKochLine(float x1, float y1, float x2, float y2, int iter, int color) {
 
         float px = p1x + dx * cos(PI / 3) + dy * sin(PI / 3);
         float py = p1y - dx * sin(PI / 3) + dy * cos(PI / 3);
-
+		
         drawKochLine(x1, y1, p1x, p1y, iter - 1, color);
         drawKochLine(p1x, p1y, px, py, iter - 1, color);
         drawKochLine(px, py, p2x, p2y, iter - 1, color);
@@ -1109,6 +1182,7 @@ void drawKochSnowflake(int x, int y, int radius, int iter, float angle, int colo
     float p3y = y + radius * sin(angle + 5 * PI / 6);
 
     // Ve 3 canh bang duong cong Koch
+    // Ap dung thuat toan ve duong cong Koch
     drawKochLine(p1x, p1y, p2x, p2y, iter, color);
     drawKochLine(p2x, p2y, p3x, p3y, iter, color);
     drawKochLine(p3x, p3y, p1x, p1y, iter, color);
@@ -1119,6 +1193,7 @@ void drawPlayer() {
         if ((int)(player.invincibilityTimer * 15) % 2 == 0) {
             // Van ve khien neu co
             if (player.shieldTimer > 0) {
+            	// Ap dung thuat toan MidpointCircle
                 midpointCircle(player.x, player.y, player.radius + 10, LIGHTBLUE);
             }
             return; // Khong ve tau bay de tao hieu ung chop tat
@@ -1170,16 +1245,16 @@ void drawPlayer() {
     fillpoly(5, right_wing);
 
     // Duong phan tach
-    setcolor(BLUE); 
-    line(x - (int)(r * 0.4), y - (int)(r * 0.1), x - (int)(r * 1.4), y + (int)(r * 0.3));
-    line(x - (int)(r * 0.5), y + (int)(r * 0.1), x - (int)(r * 1.3), y + (int)(r * 0.4));
-    line(x - (int)(r * 0.6), y + (int)(r * 0.3), x - (int)(r * 1.2), y + (int)(r * 0.5));
-    line(x + (int)(r * 0.4), y - (int)(r * 0.1), x + (int)(r * 1.4), y + (int)(r * 0.3));
-    line(x + (int)(r * 0.5), y + (int)(r * 0.1), x + (int)(r * 1.3), y + (int)(r * 0.4));
-    line(x + (int)(r * 0.6), y + (int)(r * 0.3), x + (int)(r * 1.2), y + (int)(r * 0.5));
-    line(x - (int)(r * 0.2), y - (int)(r * 1.2), x + (int)(r * 0.2), y - (int)(r * 1.2));
-    line(x - (int)(r * 0.1), y - (int)(r * 1.0), x + (int)(r * 0.1), y - (int)(r * 1.0));
-    line(x - (int)(r * 0.1), y - (int)(r * 0.5), x + (int)(r * 0.1), y - (int)(r * 0.5));
+    // Ap dung thuat toan MidpointLine
+    midpointLine(x - (int)(r * 0.4), y - (int)(r * 0.1), x - (int)(r * 1.4), y + (int)(r * 0.3), BLUE);
+    midpointLine(x - (int)(r * 0.5), y + (int)(r * 0.1), x - (int)(r * 1.3), y + (int)(r * 0.4), BLUE);
+    midpointLine(x - (int)(r * 0.6), y + (int)(r * 0.3), x - (int)(r * 1.2), y + (int)(r * 0.5), BLUE);
+    midpointLine(x + (int)(r * 0.4), y - (int)(r * 0.1), x + (int)(r * 1.4), y + (int)(r * 0.3), BLUE);
+    midpointLine(x + (int)(r * 0.5), y + (int)(r * 0.1), x + (int)(r * 1.3), y + (int)(r * 0.4), BLUE);
+    midpointLine(x + (int)(r * 0.6), y + (int)(r * 0.3), x + (int)(r * 1.2), y + (int)(r * 0.5), BLUE);
+    midpointLine(x - (int)(r * 0.2), y - (int)(r * 1.2), x + (int)(r * 0.2), y - (int)(r * 1.2), BLUE);
+    midpointLine(x - (int)(r * 0.1), y - (int)(r * 1.0), x + (int)(r * 0.1), y - (int)(r * 1.0), BLUE);
+    midpointLine(x - (int)(r * 0.1), y - (int)(r * 0.5), x + (int)(r * 0.1), y - (int)(r * 0.5), BLUE);
 
     // 3. Buong lai
     int cockpit_points[] = {
@@ -1245,7 +1320,7 @@ void drawPlayer() {
     setcolor(LIGHTCYAN);
     line(x - (int)(r * 0.8), y + (int)(r * 0.5), x - (int)(r * 0.8), y + (int)(r * 0.8));
     line(x + (int)(r * 0.8), y + (int)(r * 0.5), x + (int)(r * 0.8), y + (int)(r * 0.8));
-
+	// Ap dung thuat toan to mau de quy
     recursiveBoundaryFill(x - (int)(r * 0.75), y + (int)(r * 0.6), LIGHTCYAN, LINE_COLOR);
 
     // 6. Hieu ung lua dong co (Animated exhaust fire)
@@ -1815,6 +1890,7 @@ void drawEnemies() {
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             // enemies[i].zigzagTimer duoc lam goc xoay de hinh bong tuyet quay tron theo thoi gian
+            // Ap dung thuat toan Fractal
             drawKochSnowflake(cx, cy, s + 5, 2, enemies[i].zigzagTimer, LIGHTBLUE);
             
             // Ve them loi nang luong phat sang o giua
@@ -1894,7 +1970,8 @@ void drawEnemies() {
             // Vong hao quang buc xa
             setcolor(LIGHTRED);
             for (int r = s; r < s * 1.5; r += 5) {
-                if (rand()%2 == 0) circle(cx, cy, r);
+            	// Ap dung thuat toan BresenhamCircle
+                if (rand()%2 == 0) bresenhamCircle(cx, cy, r, LIGHTRED);
             }
             
             // Qua cau nang luong mat troi
