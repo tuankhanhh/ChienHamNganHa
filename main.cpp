@@ -156,7 +156,50 @@ void drawKochLine(float x1, float y1, float x2, float y2, int iter, int color);
 void drawKochSnowflake(int x, int y, int radius, int iter, float angle, int color);
 
 void playExplosionSound();
+void showInstructions();
 
+void showInstructions() {
+    int page = 0;
+    
+    while (GetAsyncKeyState(VK_RETURN) & 0x8000) {}
+
+    while (1) {
+        setactivepage(page);
+        cleardevice();
+
+        updateStars();
+        drawBackground();
+
+        setcolor(YELLOW);
+        settextstyle(DEFAULT_FONT, HORIZ_DIR, 5);
+        outtextxy(SCREEN_WIDTH / 2 - 340, 120, "CHIEN HAM NGAN HA");
+
+        setcolor(WHITE);
+        settextstyle(DEFAULT_FONT, HORIZ_DIR, 2);
+        outtextxy(SCREEN_WIDTH / 2 - 120, 230, "HUONG DAN CHOI:");
+
+        setcolor(LIGHTCYAN);
+        outtextxy(SCREEN_WIDTH / 2 - 250, 280, "- Phim A / D: Di chuyen trai / phai");
+        outtextxy(SCREEN_WIDTH / 2 - 250, 320, "- Chuot Trai: Ban dan");
+        outtextxy(SCREEN_WIDTH / 2 - 250, 360, "- Chuot Phai: Kich hoat Ky nang (Laser)");
+        outtextxy(SCREEN_WIDTH / 2 - 250, 400, "- An cac vat pham de nang cap vu khi");
+
+        // T?o hi?u ?ng ch? nh?p nháy (chu k? m?i 500ms)
+        if ((clock() / 500) % 2 == 0) {
+            setcolor(LIGHTGREEN);
+            outtextxy(SCREEN_WIDTH / 2 - 175, 480, ">> NHAN ENTER DE BAT DAU <<");
+        }
+
+        setvisualpage(page);
+        page = 1 - page;
+
+        // N?u ngu?i choi nh?n Enter (Mã phím: VK_RETURN) thì thoát vòng l?p
+        if (GetAsyncKeyState(VK_RETURN) & 0x8000) {
+            break; 
+        }
+        delay(20);
+    }
+}
 // Ham kiem soat am thanh no (Tranh lag chong cheo)
 void playExplosionSound() {
     static clock_t lastExplosionTime = 0;
@@ -956,9 +999,23 @@ void createExplosion(float x, float y) {
 // CAC HAM DO HOA (DRAWING)
 void drawBackground() {
     cleardevice();
-    setcolor(WHITE);
+    
     for (int i = 0; i < MAX_STARS; i++) {
-        circle(stars[i].x, stars[i].y, stars[i].radius);
+        int twinkleChance = rand() % 100;
+        int starColor;
+        
+        if (twinkleChance < 15) {
+            starColor = DARKGRAY;
+        } else if (twinkleChance < 40) {
+            starColor = LIGHTGRAY;
+        } else {
+            starColor = WHITE;
+        }
+        
+        setcolor(starColor);
+        setfillstyle(SOLID_FILL, starColor);
+        
+        fillellipse(stars[i].x, stars[i].y, stars[i].radius, stars[i].radius);
     }
 }
 
@@ -2263,11 +2320,11 @@ void drawUI() {
     bar(12, 72, 12 + (barProgress / ULTIMATE_COOLDOWN) * 96, 88);
 
     char levelText[30];
-    sprintf(levelText, "Moc: %d", difficultyLevel);
+    sprintf(levelText, "Cap do: %d", difficultyLevel);
     outtextxy(10, 100, levelText);
 
     // Thong bao khu vuc an toan (Chuyen cap)
-    if (levelTransitionTimer > 0 && !gameOver) {
+if (levelTransitionTimer > 0 && !gameOver) {
         levelTransitionTimer -= 0.02; 
         
         setcolor(YELLOW);
@@ -2276,37 +2333,43 @@ void drawUI() {
         
         if (difficultyLevel == 4) {
             sprintf(lvlMsg, "CAP DO CUOI CUNG!");
-            outtextxy(SCREEN_WIDTH / 2 - 200, SCREEN_HEIGHT / 2 - 50, lvlMsg); 
         } else {
             sprintf(lvlMsg, "CAP DO %d", difficultyLevel);
-            outtextxy(SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2 - 50, lvlMsg); 
         }
         
-        setcolor(WHITE);
-        settextstyle(DEFAULT_FONT, HORIZ_DIR, 2);
-        outtextxy(SCREEN_WIDTH / 2 - 110, SCREEN_HEIGHT / 2 + 10, (char*)"Khu vuc an toan...");
+        int textX = SCREEN_WIDTH / 2 - textwidth(lvlMsg) / 2;
+        outtextxy(textX, SCREEN_HEIGHT / 2 - 50, lvlMsg); 
+        
     }
 
-    if (gameOver) {
+if (gameOver) {
         setcolor(LIGHTRED);
         settextstyle(DEFAULT_FONT, HORIZ_DIR, 3);
-        outtextxy(SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2 - 30, (char*)"Ket Thuc!");
+        
+        char gameOverMsg[] = "Ket Thuc!";
+        int gameOverX = SCREEN_WIDTH / 2 - textwidth(gameOverMsg) / 2;
+        outtextxy(gameOverX, SCREEN_HEIGHT / 2 - 30, gameOverMsg);
         
         char finalScore[30];
         sprintf(finalScore, "Diem Cuoi: %d", score);
-        outtextxy(SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 + 10, finalScore);
+        int scoreX = SCREEN_WIDTH / 2 - textwidth(finalScore) / 2;
+        outtextxy(scoreX, SCREEN_HEIGHT / 2 + 10, finalScore);
         
-        outtextxy(SCREEN_WIDTH / 2 - 140, SCREEN_HEIGHT / 2 + 50, (char*)"Nhan R de Choi Lai");
-    } 
+        char retryMsg[] = "Nhan R de Choi Lai";
+        int retryX = SCREEN_WIDTH / 2 - textwidth(retryMsg) / 2;
+        outtextxy(retryX, SCREEN_HEIGHT / 2 + 50, retryMsg);
+    }
 }
 
 // HAM CHINH (MAIN)
 int main() {
     // Khoi tao do hoa voi kich thuoc man hinh chuan
-    initwindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Space Shooter Game - Vo Tan");
+    initwindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Chien ham ngan ha");
     srand((unsigned int)time(NULL));
 
     initGame();
+    
+    showInstructions();
 
     int page = 0; // Dung cho Double Buffering (Chong nhay man hinh)
 
