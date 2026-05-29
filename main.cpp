@@ -113,6 +113,7 @@ Star stars[MAX_STARS];
 
 int score = 0;
 bool gameOver = false;
+bool isPaused = false;
 clock_t lastShotTime = 0;
 int currentShootDelay = SHOOT_DELAY;
 float currentPlayerSpeed = PLAYER_SPEED;
@@ -136,6 +137,7 @@ void spawnEnemy();
 void spawnBoss();
 void spawnPowerUp(float x, float y);
 void shootBullet();
+void shootCompanionBullet();
 void triggerUltimate();
 void createExplosion(float x, float y);
 
@@ -187,9 +189,9 @@ void showInstructions() {
         outtextxy(SCREEN_WIDTH / 2 - 250, 280, "- Phim A / D: Di chuyen trai / phai");
         outtextxy(SCREEN_WIDTH / 2 - 250, 320, "- Chuot Trai: Ban dan");
         outtextxy(SCREEN_WIDTH / 2 - 250, 360, "- Chuot Phai: Kich hoat Ky nang (Laser)");
-        outtextxy(SCREEN_WIDTH / 2 - 250, 400, "- An cac vat pham de nang cap vu khi");
+        outtextxy(SCREEN_WIDTH / 2 - 250, 400, "- Nhat cac vat pham de nang cap vu khi");
+        outtextxy(SCREEN_WIDTH / 2 - 250, 440, "- Nhan Space de dung");
 
-        // T?o hi?u ?ng ch? nh?p nháy (chu k? m?i 500ms)
         if ((clock() / 500) % 2 == 0) {
             setcolor(LIGHTGREEN);
             outtextxy(SCREEN_WIDTH / 2 - 175, 480, ">> NHAN ENTER DE BAT DAU <<");
@@ -198,19 +200,17 @@ void showInstructions() {
         setvisualpage(page);
         page = 1 - page;
 
-        // N?u ngu?i choi nh?n Enter (Mã phím: VK_RETURN) thì thoát vòng l?p
         if (GetAsyncKeyState(VK_RETURN) & 0x8000) {
             break; 
         }
         delay(20);
     }
 }
-// Ham kiem soat am thanh no (Tranh lag chong cheo)
+
 void playExplosionSound() {
     static clock_t lastExplosionTime = 0;
     clock_t now = clock();
     
-    // Chi cho phep phat am thanh no moi 100 mili-giay (0.1 giay)
     if ((now - lastExplosionTime) * 1000 / CLOCKS_PER_SEC >= 100) {
         mciSendString("seek vuno_sound to start", NULL, 0, NULL);
         mciSendString("play vuno_sound", NULL, 0, NULL);
@@ -218,7 +218,6 @@ void playExplosionSound() {
     }
 }
 
-// LOGIC KHOI TAO GAME
 void initGame() {
     player.x = SCREEN_WIDTH / 2;
     player.y = SCREEN_HEIGHT - 35;
@@ -239,14 +238,12 @@ void initGame() {
     player.laserTimer = 0;
     player.invincibilityTimer = 0;
 
-    // Khoi tao phi thuyen de (Companions)
     for (int i = 0; i < MAX_COMPANIONS; i++) {
         companions[i].active = false;
         companions[i].radius = 10;
         companions[i].lastAngle = -PI / 2;
     }
 
-    // Khoi tao mang du lieu
     for (int i = 0; i < MAX_BULLETS; i++) {
         bullets[i].active = false;
         bullets[i].highDamage = false;
@@ -256,7 +253,6 @@ void initGame() {
     for (int i = 0; i < MAX_POWERUPS; i++) powerUps[i].active = false;
     for (int i = 0; i < MAX_PARTICLES; i++) particles[i].active = false;
     
-    // Khoi tao sao bang lam nen
     for (int i = 0; i < MAX_STARS; i++) {
         stars[i].x = rand() % SCREEN_WIDTH;
         stars[i].y = rand() % SCREEN_HEIGHT;
@@ -264,9 +260,9 @@ void initGame() {
         stars[i].speed = (rand() % 5 + 1) * 0.1;
     }
 
-    // Reset thong so diem & level
     score = 0;
     gameOver = false;
+    bool isPaused = false;
     lastShotTime = 0;
     currentShootDelay = SHOOT_DELAY;
     currentPlayerSpeed = PLAYER_SPEED;
@@ -277,7 +273,6 @@ void initGame() {
     levelTransitionTimer = 0;
     nextBossScore = 500;
 
-    // Bat nhac nen & dong cac tap am thanh cu
     mciSendString("close bgm", NULL, 0, NULL); 
     mciSendString("open \"nhacnen.mp3\" type mpegvideo alias bgm", NULL, 0, NULL);
     mciSendString("play bgm repeat", NULL, 0, NULL);
@@ -288,7 +283,6 @@ void initGame() {
     mciSendString("open \"vuno.wav\" type waveaudio alias vuno_sound", NULL, 0, NULL);
 }
 
-// CHUC NANG CAP NHAT (UPDATE LOGIC)
 void updateStars() {
     for (int i = 0; i < MAX_STARS; i++) {
         stars[i].y += stars[i].speed;
@@ -300,33 +294,36 @@ void updateStars() {
 }
 
 void updatePlayer() {
-    // Co dinh vi tri Y & huong ban
     player.lastAngle = -PI / 2;  
     player.y = SCREEN_HEIGHT - player.radius - 20; 
     player.dy = 0;
 
-    // Dieu khien ngang (Su dung ma Hex de tranh loi Unikey)
     player.dx = 0; 
-    if (GetAsyncKeyState(0x41) & 0x8000) player.dx -= currentPlayerSpeed; // Phim A
-    if (GetAsyncKeyState(0x44) & 0x8000) player.dx += currentPlayerSpeed; // Phim D
+    if (GetAsyncKeyState(0x41) & 0x8000) player.dx -= currentPlayerSpeed; 
+    if (GetAsyncKeyState(0x44) & 0x8000) player.dx += currentPlayerSpeed; 
 
-    // Cap nhat toa do
+    // [Phep bien doi Affine - Tinh tien] Phi thuyen nguoi choi: Truot qua trai/phai (player.dx).
     player.x += player.dx; 
 
-    // Gioi han man hinh
     if (player.x < player.radius) player.x = player.radius;
     if (player.x > SCREEN_WIDTH - player.radius) player.x = SCREEN_WIDTH - player.radius;
 
-    // Ban dan (Chuot trai)
     if (GetAsyncKeyState(VK_LBUTTON) & 0x8000) {
         clock_t now = clock();
         if ((now - lastShotTime) * 1000 / CLOCKS_PER_SEC >= currentShootDelay) {
-            shootBullet();      
+            
+            if (player.laserTimer <= 0) {
+                shootBullet(); 
+            }
+
+            if (player.companionBoostTimer > 0) {
+                shootCompanionBullet(); 
+            }
+
             lastShotTime = now;
         }
     }
 
-    // He thong Ultimate (Tia Laser)
     if (player.laserTimer <= 0) {
         if (player.ultimateTimer < ULTIMATE_COOLDOWN) {
             player.ultimateTimer += 0.015;
@@ -348,7 +345,6 @@ void updatePlayer() {
         }
     }
 
-    // Kich hoat khi nhan chuot phai
     if (ismouseclick(WM_RBUTTONDOWN)) {
         clearmouseclick(WM_RBUTTONDOWN);
         if (player.ultimateTimer >= ULTIMATE_COOLDOWN) {
@@ -357,10 +353,8 @@ void updatePlayer() {
         }
     }
     
-    // Giam thoi gian bat tu
     if (player.invincibilityTimer > 0) player.invincibilityTimer -= 0.02; 
     
-    // Xu ly Buff / Power-up
     if (player.speedBoostTimer > 0) {
         currentPlayerSpeed = 15;
         player.speedBoostTimer -= 0.02;
@@ -382,7 +376,6 @@ void updatePlayer() {
     if (player.shieldTimer > 0) player.shieldTimer -= 0.02;
     if (player.damageBoostTimer > 0) player.damageBoostTimer -= 0.02;
 
-    // Buff may bay ho tro
     if (player.companionBoostTimer > 0) {
         player.companionBoostTimer -= 0.02; 
         updateCompanions(); 
@@ -409,6 +402,7 @@ void updateCompanions() {
 void updateBullets() {
     for (int i = 0; i < MAX_BULLETS; i++) {
         if (bullets[i].active) {
+            // [Phep bien doi Affine - Tinh tien] Toan bo dan: Ban thang len tren hoac cheo xuong duoi.
             bullets[i].x += bullets[i].dx;
             bullets[i].y += bullets[i].dy;
             if (bullets[i].x < 0 || bullets[i].x > SCREEN_WIDTH || 
@@ -427,7 +421,6 @@ void updateEnemies() {
             float dist = sqrt(dx * dx + dy * dy);
             float speed = 2.0 + difficultyLevel * 0.5 + postBossDifficulty * 0.3;
 
-            // Xet toc do tuy thuoc vao loai quai
             if (enemies[i].type == 2 || enemies[i].type == 7 || enemies[i].type == 12) speed = 3.5 + difficultyLevel * 0.5 + postBossDifficulty * 0.3;
             else if (enemies[i].type == 3) speed = 1.5 + difficultyLevel * 0.5 + postBossDifficulty * 0.3;
             else if (enemies[i].type == 4 || enemies[i].type == 9 || enemies[i].type == 14) {
@@ -441,19 +434,18 @@ void updateEnemies() {
             else if (enemies[i].type == 5 || enemies[i].type == 11 || enemies[i].type == 15) speed = 1.0 + difficultyLevel * 0.5 + postBossDifficulty * 0.3;
             else if (enemies[i].type >= 16) speed = enemies[i].type == 19 ? 3.0 : 1.5;
 
-            // Huong di chuyen bam theo nguoi choi
             if (dist > 0) {
                 enemies[i].dx = speed * dx / dist;
                 enemies[i].dy = speed * dy / dist;
             }
 
-            // Hanh dong dac biet
             if (enemies[i].type == 2 || enemies[i].type == 7 || enemies[i].type == 13) {
                 enemies[i].zigzagTimer += 0.1;
                 enemies[i].x += 5 * sin(enemies[i].zigzagTimer);
             }
 
-            if (enemies[i].type == 10) { // Dodger - Ne dan
+            // [Phep bien doi Affine - Tinh tien] Quai 10 (Dodger) tinh tien de ne dan
+            if (enemies[i].type == 10) { 
                 for (int j = 0; j < MAX_BULLETS; j++) {
                     if (bullets[j].active && !bullets[j].isEnemy) {
                         float bulletDist = sqrt(pow(bullets[j].x - enemies[i].x, 2) + pow(bullets[j].y - enemies[i].y, 2));
@@ -466,7 +458,6 @@ void updateEnemies() {
                 }
             }
 
-            // Linh ban tia
             if (enemies[i].type == 5 || enemies[i].type == 11 || enemies[i].type == 15) {
                 enemies[i].shootTimer += 0.02;
                 if (enemies[i].shootTimer > 2) {
@@ -490,7 +481,6 @@ void updateEnemies() {
                 }
             }
 
-            // Pattern ban dan cua Boss
             if (enemies[i].type == 16) {
                 enemies[i].specialTimer += 0.02;
                 if (enemies[i].specialTimer > 3) {
@@ -535,7 +525,7 @@ void updateEnemies() {
                 }
             }
 
-            if (enemies[i].type == 18) { // Boss Trieu hoi
+            if (enemies[i].type == 18) { 
                 enemies[i].specialTimer += 0.02;
                 if (enemies[i].specialTimer > 5) {
                     for (int j = 0; j < 2; j++) {
@@ -582,16 +572,14 @@ void updateEnemies() {
                 }
             }
 
-            // Cap nhat vi tri cuoi cung
+            // [Phep bien doi Affine - Tinh tien] Tat ca quai vat: Tinh tien vi tri
             enemies[i].x += enemies[i].dx;
             enemies[i].y += enemies[i].dy;
             
-            // Gioi han map
             if (enemies[i].x < enemies[i].radius) enemies[i].x = enemies[i].radius;
             if (enemies[i].x > SCREEN_WIDTH - enemies[i].radius) enemies[i].x = SCREEN_WIDTH - enemies[i].radius;
             if (enemies[i].y < enemies[i].radius) enemies[i].y = enemies[i].radius;
             
-            // GIOI HAN TAM THAP CUA DICH
             int lowerLimitY = SCREEN_HEIGHT - 60; 
             if (enemies[i].y > lowerLimitY) {
                 enemies[i].y = lowerLimitY;
@@ -670,6 +658,7 @@ void updateParticles() {
             particles[i].y += particles[i].dy;
             
             if (particles[i].type == 1) {
+                // [Phep bien doi Affine - Co gian] Hieu ung vu no: Vong song xung kich mo rong ban kinh
                 particles[i].size += 4.5; 
             } else {
                 particles[i].dx *= 0.85;
@@ -682,9 +671,7 @@ void updateParticles() {
     }
 }
 
-// KHOI LENH XU LY VA CHAM (COLLISIONS)
 void checkCollisions() {
-    // --- 1. XU LY SAT THUONG LASER ---
     if (player.laserTimer > 0) {
         for (int j = 0; j < MAX_ENEMIES; j++) {
             if (enemies[j].active) {
@@ -707,11 +694,9 @@ void checkCollisions() {
         }
     }
 
-    // --- 2. XU LY VA CHAM DAN ---
     for (int i = 0; i < MAX_BULLETS; i++) {
         if (bullets[i].active) {
             
-            // Truong hop 1: Dan nguoi choi ban trung dich
             if (!bullets[i].isEnemy) {
                 for (int j = 0; j < MAX_ENEMIES; j++) {
                     if (enemies[j].active) {
@@ -744,7 +729,6 @@ void checkCollisions() {
                     }
                 }
             } 
-            // Truong hop 2: Dan dich ban trung nguoi choi
             else {
                 if (player.invincibilityTimer <= 0) { 
                     float dist = sqrt(pow(bullets[i].x - player.x, 2) + pow(bullets[i].y - player.y, 2));
@@ -767,7 +751,6 @@ void checkCollisions() {
         }
     }
 
-    // --- 3. VA CHAM NGUOI CHOI TONG VAO KE DICH ---
     for (int i = 0; i < MAX_ENEMIES; i++) {
         if (enemies[i].active && player.invincibilityTimer <= 0) {
             float dist = sqrt(pow(player.x - enemies[i].x, 2) + pow(player.y - enemies[i].y, 2));
@@ -790,7 +773,6 @@ void checkCollisions() {
         }
     }
 
-    // --- 4. LOGIC LEN CAP & GOI BOSS (CHE DO VO TAN) ---
     int oldLevel = difficultyLevel; 
 
     if (score >= 2000 && difficultyLevel < 4) {
@@ -805,19 +787,16 @@ void checkCollisions() {
         difficultyLevel = 1; companions[1].active = true;
     }
 
-    // Ngu sinh linh 3 giay de thong bao
     if (difficultyLevel > oldLevel) {
         levelTransitionTimer = 3.0; 
     }
 
-    // Boss se lien tuc xuat hien moi 500 diem
     if (!bossActive && levelTransitionTimer <= 0 && score >= nextBossScore) {
         spawnBoss();
         nextBossScore += 500; 
     }
 }
 
-// CAC HAM HO TRO (HELPERS: SINH DICH, BAN DAN, NO...)
 void spawnEnemy() {
     if (levelTransitionTimer > 0) return;
 
@@ -873,7 +852,6 @@ void spawnBoss() {
     if (bossActive) return;
     int bossType = 0;
     
-    // Giai doan diem sieu cao se ramdom Boss de tao thu thach
     if (score >= 2000) bossType = 16 + (rand() % 4); 
     else if (score >= 1500) bossType = 18;
     else if (score >= 1000) bossType = 17;
@@ -917,7 +895,6 @@ void spawnPowerUp(float x, float y) {
 void shootBullet() {
     PlaySound(TEXT("ban.wav"), NULL, SND_FILENAME | SND_ASYNC);
     
-    // Dan cua ban than (Player)
     for (int i = 0; i < MAX_BULLETS; i++) {
         if (!bullets[i].active) {
             bullets[i].active = true;
@@ -927,11 +904,14 @@ void shootBullet() {
             bullets[i].dy = -BULLET_SPEED;
             bullets[i].highDamage = player.damageBoostTimer > 0;
             bullets[i].isEnemy = false; 
-            break;
+            break; 
         }
     }
+}
 
-    // Dan cua De (Companions)
+void shootCompanionBullet() {
+    PlaySound(TEXT("ban.wav"), NULL, SND_FILENAME | SND_ASYNC);
+
     for (int i = 0; i < MAX_COMPANIONS; i++) {
         if (!companions[i].active) continue;
 
@@ -944,7 +924,7 @@ void shootBullet() {
                 bullets[j].dy = -BULLET_SPEED;
                 bullets[j].highDamage = player.damageBoostTimer > 0;
                 bullets[j].isEnemy = false; 
-                break;
+                break; 
             }
         }
     }
@@ -957,7 +937,6 @@ void triggerUltimate() {
 }
 
 void createExplosion(float x, float y) {
-    // 1. Tao vong song xung kich
     for (int i = 0; i < MAX_PARTICLES; i++) {
         if (!particles[i].active) {
             particles[i].x = x;
@@ -973,7 +952,6 @@ void createExplosion(float x, float y) {
         }
     }
 
-    // 2. Tao bui tia lua vang tu tung
     int numSparks = 10 + rand() % 6; 
     for (int k = 0; k < numSparks; k++) {
         for (int i = 0; i < MAX_PARTICLES; i++) {
@@ -1001,7 +979,6 @@ void createExplosion(float x, float y) {
     }
 }
 
-// CAC HAM DO HOA (DRAWING)
 void drawBackground() {
     cleardevice();
     
@@ -1024,7 +1001,6 @@ void drawBackground() {
     }
 }
 
-// Thuat toan ve duong tron Midpoint
 void midpointCircle(int xc, int yc, int r, int color) {
     int x = 0, y = r;
     int p = 1 - r;
@@ -1056,13 +1032,11 @@ void midpointLine(int x1, int y1, int x2, int y2, int color) {
     int sy = (y1 < y2) ? 1 : -1;
     
     int isSwap = 0;
-    // Neu do doc > 45 do, hoan vi dx va dy de dam bao dx luon lon nhat
     if (dy > dx) {
         int temp = dx; dx = dy; dy = temp;
         isSwap = 1;
     }
     
-    // Cac bien quyet dinh cua Midpoint
     int d = 2 * dy - dx;
     int incE = 2 * dy;
     int incNE = 2 * (dy - dx);
@@ -1073,7 +1047,7 @@ void midpointLine(int x1, int y1, int x2, int y2, int color) {
     for (int i = 1; i <= dx; i++) {
         if (d < 0) {
             d += incE;
-            if (isSwap) y += sy; // Neu da hoan vi, bien di chuyen doc lap la y
+            if (isSwap) y += sy; 
             else x += sx;
         } else {
             d += incNE;
@@ -1084,28 +1058,22 @@ void midpointLine(int x1, int y1, int x2, int y2, int color) {
     }
 }
 
-// Thuat toan Boundary Fill de to mau
 void recursiveBoundaryFill(int x, int y, int fill_color, int boundary_color) {
-    // 1. Kiem tra dieu kien dung: Toa do nam ngoai gioi han man hinh
     if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT) return;
 
-    // 2. Lay ma mau cua diem anh (pixel) hien tai
     int current_color = getpixel(x, y);
 
-    // 3. Kiem tra dieu kien to: Chua cham vao duong bien va chua duoc to mau nay
     if (current_color != boundary_color && current_color != fill_color) {
         
-        // To mau cho pixel hien tai
         putpixel(x, y, fill_color); 
 
-        // 4. Goi de quy lan toa ra 4 huong lan can (Pixel luy tuyen)
-        recursiveBoundaryFill(x + 1, y, fill_color, boundary_color); // Sang phai
-        recursiveBoundaryFill(x - 1, y, fill_color, boundary_color); // Sang trai
-        recursiveBoundaryFill(x, y + 1, fill_color, boundary_color); // Xuong duoi
-        recursiveBoundaryFill(x, y - 1, fill_color, boundary_color); // Len tren
+        recursiveBoundaryFill(x + 1, y, fill_color, boundary_color); 
+        recursiveBoundaryFill(x - 1, y, fill_color, boundary_color); 
+        recursiveBoundaryFill(x, y + 1, fill_color, boundary_color); 
+        recursiveBoundaryFill(x, y - 1, fill_color, boundary_color); 
     }
 }
-// Thuat toan ve duong thang Bresenham
+
 void bresenhamLine(int x1, int y1, int x2, int y2, int color) {
     int dx = abs(x2 - x1);
     int dy = abs(y2 - y1);
@@ -1124,10 +1092,9 @@ void bresenhamLine(int x1, int y1, int x2, int y2, int color) {
 
 void bresenhamCircle(int xc, int yc, int r, int color) {
     int x = 0, y = r;
-    int d = 3 - 2 * r; // Bien quyet dinh cua Bresenham
+    int d = 3 - 2 * r; 
 
     while (y >= x) {
-        // Ve 8 diem doi xung
         putpixel(xc + x, yc + y, color);
         putpixel(xc - x, yc + y, color);
         putpixel(xc + x, yc - y, color);
@@ -1146,10 +1113,10 @@ void bresenhamCircle(int xc, int yc, int r, int color) {
         }
     }
 }
-// Thuat toan de quy ve duong cong Koch
+
 void drawKochLine(float x1, float y1, float x2, float y2, int iter, int color) {
     if (iter == 0) {
-    	// Ap dung thuat toan BresenhamLine
+        // [Ap dung thuat toan Bresenham Line] Ve cac net thang tao nen duong cong Fractal
         bresenhamLine((int)x1, (int)y1, (int)x2, (int)y2, color);
     } else {
         float dx = (x2 - x1) / 3.0f;
@@ -1161,9 +1128,10 @@ void drawKochLine(float x1, float y1, float x2, float y2, int iter, int color) {
         float p2x = x1 + 2 * dx;
         float p2y = y1 + 2 * dy;
 
+        // [Phep bien doi Affine - Quay] Xoay goc Pi/3 tinh toa do dinh tam giac Koch
         float px = p1x + dx * cos(PI / 3) + dy * sin(PI / 3);
         float py = p1y - dx * sin(PI / 3) + dy * cos(PI / 3);
-		
+        
         drawKochLine(x1, y1, p1x, p1y, iter - 1, color);
         drawKochLine(p1x, p1y, px, py, iter - 1, color);
         drawKochLine(px, py, p2x, p2y, iter - 1, color);
@@ -1171,9 +1139,8 @@ void drawKochLine(float x1, float y1, float x2, float y2, int iter, int color) {
     }
 }
 
-// Ghep 3 duong Koch thanh hinh Bong tuyet xoay
 void drawKochSnowflake(int x, int y, int radius, int iter, float angle, int color) {
-    // Tinh toan 3 dinh cua tam giac deu duoc xoay theo goc 'angle'
+    // [Phep bien doi Affine - Quay] Tinh toan 3 dinh cua tam giac deu duoc xoay theo goc 'angle'
     float p1x = x + radius * cos(angle - PI / 2);
     float p1y = y + radius * sin(angle - PI / 2);
     float p2x = x + radius * cos(angle + PI / 6);
@@ -1181,22 +1148,20 @@ void drawKochSnowflake(int x, int y, int radius, int iter, float angle, int colo
     float p3x = x + radius * cos(angle + 5 * PI / 6);
     float p3y = y + radius * sin(angle + 5 * PI / 6);
 
-    // Ve 3 canh bang duong cong Koch
-    // Ap dung thuat toan ve duong cong Koch
+    // [Hinh hoc Fractal] Ap dung thuat toan ve duong cong Koch
     drawKochLine(p1x, p1y, p2x, p2y, iter, color);
     drawKochLine(p2x, p2y, p3x, p3y, iter, color);
     drawKochLine(p3x, p3y, p1x, p1y, iter, color);
 }
+
 void drawPlayer() {
-    // Hieu ung nhap nhay khi bat tu
     if (player.invincibilityTimer > 0) {
         if ((int)(player.invincibilityTimer * 15) % 2 == 0) {
-            // Van ve khien neu co
             if (player.shieldTimer > 0) {
-            	// Ap dung thuat toan MidpointCircle
+                // [Ap dung thuat toan Midpoint Circle] Ve vong tron la chan
                 midpointCircle(player.x, player.y, player.radius + 10, LIGHTBLUE);
             }
-            return; // Khong ve tau bay de tao hieu ung chop tat
+            return; 
         }
     }
 
@@ -1212,7 +1177,6 @@ void drawPlayer() {
     setcolor(LINE_COLOR); 
     setfillstyle(SOLID_FILL, BODY_FILL_COLOR);
 
-    // 1. Than chinh & Mui
     int body_points[] = {
         x, y - (int)(r * 1.6),            
         x - (int)(r * 0.4), y - (int)(r * 1.3), 
@@ -1225,7 +1189,6 @@ void drawPlayer() {
     };
     fillpoly(8, body_points);
 
-    // 2. Canh tam giac
     int left_wing[] = {
         x - (int)(r * 0.3), y - (int)(r * 0.3), 
         x - (int)(r * 1.5), y + (int)(r * 0.2), 
@@ -1244,8 +1207,7 @@ void drawPlayer() {
     };
     fillpoly(5, right_wing);
 
-    // Duong phan tach
-    // Ap dung thuat toan MidpointLine
+    // [Ap dung thuat toan Midpoint Line] Ve cac duong van ranh xanh dam
     midpointLine(x - (int)(r * 0.4), y - (int)(r * 0.1), x - (int)(r * 1.4), y + (int)(r * 0.3), BLUE);
     midpointLine(x - (int)(r * 0.5), y + (int)(r * 0.1), x - (int)(r * 1.3), y + (int)(r * 0.4), BLUE);
     midpointLine(x - (int)(r * 0.6), y + (int)(r * 0.3), x - (int)(r * 1.2), y + (int)(r * 0.5), BLUE);
@@ -1256,7 +1218,6 @@ void drawPlayer() {
     midpointLine(x - (int)(r * 0.1), y - (int)(r * 1.0), x + (int)(r * 0.1), y - (int)(r * 1.0), BLUE);
     midpointLine(x - (int)(r * 0.1), y - (int)(r * 0.5), x + (int)(r * 0.1), y - (int)(r * 0.5), BLUE);
 
-    // 3. Buong lai
     int cockpit_points[] = {
         x, y - (int)(r * 0.9),            
         x - (int)(r * 0.1), y - (int)(r * 0.8), 
@@ -1271,7 +1232,6 @@ void drawPlayer() {
     line(x - (int)(r * 0.05), y - (int)(r * 0.8), x + (int)(r * 0.05), y - (int)(r * 0.8));
     line(x - (int)(r * 0.05), y - (int)(r * 0.7), x + (int)(r * 0.05), y - (int)(r * 0.7));
 
-    // 4. Duoi va ong xa phia sau
     setfillstyle(SOLID_FILL, BODY_FILL_COLOR);
     setcolor(LINE_COLOR);
     
@@ -1298,7 +1258,6 @@ void drawPlayer() {
     bar(x - (int)(r * 0.15), y + (int)(r * 1.2), x - (int)(r * 0.05), y + (int)(r * 1.3));
     bar(x + (int)(r * 0.05), y + (int)(r * 1.2), x + (int)(r * 0.15), y + (int)(r * 1.3));
 
-    // 5. Vu khi duoi canh
     setfillstyle(SOLID_FILL, POD_FILL_COLOR);
     setcolor(BLUE);
     int left_pod[] = {
@@ -1320,10 +1279,10 @@ void drawPlayer() {
     setcolor(LIGHTCYAN);
     line(x - (int)(r * 0.8), y + (int)(r * 0.5), x - (int)(r * 0.8), y + (int)(r * 0.8));
     line(x + (int)(r * 0.8), y + (int)(r * 0.5), x + (int)(r * 0.8), y + (int)(r * 0.8));
-	// Ap dung thuat toan to mau de quy
+    
+    // [Ap dung thuat toan Boundary Fill] To mau xanh lap day khoang chua vu khi
     recursiveBoundaryFill(x - (int)(r * 0.75), y + (int)(r * 0.6), LIGHTCYAN, LINE_COLOR);
 
-    // 6. Hieu ung lua dong co (Animated exhaust fire)
     int flameLenL = (int)(r * 0.4) + rand() % (int)(r * 0.4 + 1);
     int flameLenR = (int)(r * 0.4) + rand() % (int)(r * 0.4 + 1);
 
@@ -1367,8 +1326,8 @@ void drawPlayer() {
     };
     fillpoly(4, fire_right_inner);
 
-    // 7. Khien (Su dung thuat toan Midpoint Circle)
     if (player.shieldTimer > 0) {
+        // [Ap dung thuat toan Midpoint Circle] Ve vong tron la chan
         midpointCircle(x, y, r + 10, LIGHTBLUE);
     }
 }
@@ -1502,7 +1461,7 @@ void drawBullets() {
             int by = bullets[i].y;
 
             if (bullets[i].isEnemy) {
-                // Dan dich ban ra (Tron, Do)
+                // [Ap dung thuat toan Bresenham Circle] Ve dan cua dich
                 int enemyBulletRadius = 5;
                 setcolor(WHITE); 
                 setfillstyle(SOLID_FILL, LIGHTRED); 
@@ -1510,11 +1469,10 @@ void drawBullets() {
                 circle(bx, by, enemyBulletRadius);
             } 
             else {
-                // Dan nguoi choi
+                // [Phep bien doi Affine - Co gian] He so co gian phinh to vien dan (currentBulletSize * 1.5)
                 int radius = player.bulletSizeTimer > 0 ? currentBulletSize * 1.5 : currentBulletSize;
 
                 if (player.currentFruitType == 1) { 
-                    // Chuoi
                     setcolor(YELLOW);
                     setfillstyle(SOLID_FILL, YELLOW);
                     int w = radius * 2.0; 
@@ -1533,7 +1491,6 @@ void drawBullets() {
                     fillellipse(bx + w, by, numSize, numSize);
                 } 
                 else if (player.currentFruitType == 5) { 
-                    // Tao
                     int r_apple = radius * 1.6; 
                     setcolor(LIGHTRED);
                     setfillstyle(SOLID_FILL, LIGHTRED);
@@ -1546,7 +1503,6 @@ void drawBullets() {
                     fillellipse(bx + r_apple/2 + 1, by - r_apple - 4, r_apple/2, r_apple/3 + 1); 
                 } 
                 else { 
-                    // Dan thuong
                     setcolor(WHITE);
                     setfillstyle(SOLID_FILL, bullets[i].highDamage ? RED : YELLOW);
                     fillellipse(bx, by, radius, radius);
@@ -1561,7 +1517,7 @@ void drawEnemies() {
         if (!enemies[i].active) continue;
 
         int size = enemies[i].radius;
-        // Goc xoay huong ve phia may bay nguoi choi (dung cho cac quai biet nham muc tieu)
+        // [Phep bien doi Affine - Quay] Tinh goc quay (angle) huong ve phi thuyen nguoi choi
         float angle = atan2(
             player.y - enemies[i].y,
             player.x - enemies[i].x
@@ -1569,42 +1525,37 @@ void drawEnemies() {
 
         switch (enemies[i].type) {
 
-        case 1: // Drone - Thiet ke lai thanh vat the ngoai hanh tinh (Mat co khi)
+        case 1: 
         {
             int cx = enemies[i].x;
             int cy = enemies[i].y;
             int s = size;
 
-            // 1. Ve cac xuc tu / ang-ten nang luong (ve truoc de nam duoi than)
             setcolor(LIGHTMAGENTA);
             line(cx, cy, cx - (int)(s * 1.2), cy - (int)(s * 0.8));
             line(cx, cy, cx + (int)(s * 1.2), cy - (int)(s * 0.8));
             line(cx, cy, cx - (int)(s * 0.8), cy + (int)(s * 1.2));
             line(cx, cy, cx + (int)(s * 0.8), cy + (int)(s * 1.2));
 
-            // 2. Ve vo kim loai ben ngoai (Hinh thoi vuong vuc)
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, DARKGRAY);
             int alien_body[] = {
-                cx, cy - s,          // Dinh tren
-                cx + s, cy,          // Dinh phai
-                cx, cy + s,          // Dinh duoi
-                cx - s, cy,          // Dinh trai
-                cx, cy - s           // Dong vong chot khoi
+                cx, cy - s,          
+                cx + s, cy,          
+                cx, cy + s,          
+                cx - s, cy,          
+                cx, cy - s           
             };
             fillpoly(5, alien_body);
 
-            // 3. Ve con mat sinh hoc o giua
             setcolor(LIGHTRED);
             setfillstyle(SOLID_FILL, RED);
             fillellipse(cx, cy, (int)(s * 0.6), (int)(s * 0.6));
 
-            // 4. Ve dong tu (Loi vang ke doc giong mat ran/quai vat)
             setcolor(YELLOW);
             setfillstyle(SOLID_FILL, YELLOW);
             fillellipse(cx, cy, (int)(s * 0.15), (int)(s * 0.4));
             
-            // 5. Ve cham sang de tao do bong cho mat
             setcolor(WHITE);
             putpixel(cx - 2, cy - 2, WHITE);
             putpixel(cx - 3, cy - 2, WHITE);
@@ -1612,37 +1563,35 @@ void drawEnemies() {
             break;
         }
 
-        case 2: // Scout - Mui ten sinh hoc (Biet bam duoi, sac nhon)
+        case 2: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             setcolor(LIGHTGREEN);
             setfillstyle(SOLID_FILL, DARKGRAY);
             
-            // Khung xuong sac nhon huong ve phia nguoi choi
+            // [Phep bien doi Affine - Quay] Quai vat quay theo muc tieu
             int pts[] = {
                 cx + (int)(s * 1.5 * cos(angle)), cy + (int)(s * 1.5 * sin(angle)),
                 cx + (int)(s * cos(angle + 2.5)), cy + (int)(s * sin(angle + 2.5)),
-                cx + (int)(s * 0.2 * cos(angle)), cy + (int)(s * 0.2 * sin(angle)), // Loi lom o duoi
+                cx + (int)(s * 0.2 * cos(angle)), cy + (int)(s * 0.2 * sin(angle)), 
                 cx + (int)(s * cos(angle - 2.5)), cy + (int)(s * sin(angle - 2.5)),
                 cx + (int)(s * 1.5 * cos(angle)), cy + (int)(s * 1.5 * sin(angle))
             };
             fillpoly(5, pts);
             drawpoly(5, pts);
             
-            // Mat doc nhan mau xanh luc o trung tam
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, GREEN);
             fillellipse(cx + (int)(s*0.3*cos(angle)), cy + (int)(s*0.3*sin(angle)), s/3, s/3);
             break;
         }
 
-        case 3: // Tank - Bo hung boc thep (Cham chap, giap day, luc luong)
+        case 3: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             setcolor(YELLOW);
             setfillstyle(SOLID_FILL, DARKGRAY);
             
-            // Giap luc giac khong lo
             int pts[14];
             for (int j = 0; j < 6; j++) {
                 pts[j * 2] = cx + s * cos(j * PI / 3 + PI/6);
@@ -1651,12 +1600,10 @@ void drawEnemies() {
             pts[12] = pts[0]; pts[13] = pts[1];
             fillpoly(7, pts);
             
-            // Duong gan thep tren lung
             setcolor(LIGHTGRAY);
             line(cx - s, cy, cx + s, cy);
             line(cx, cy - s, cx, cy + s);
 
-            // Loi lo phan ung nhiet hach o giua
             setcolor(LIGHTRED);
             setfillstyle(SOLID_FILL, RED);
             fillellipse(cx, cy, s/2, s/2);
@@ -1665,12 +1612,12 @@ void drawEnemies() {
             break;
         }
 
-        case 4: // Chaser - Mong vuot tu than (Biet lao nhanh, 2 luoi hai lon)
+        case 4: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             setcolor(LIGHTMAGENTA);
             
-            // Ve 2 luoi hai sac ben chom ra phia truoc
+            // [Phep bien doi Affine - Quay] Quai vat quay theo muc tieu
             int claw1[] = {
                 cx, cy, 
                 cx + (int)(s*1.8 * cos(angle - 0.6)), cy + (int)(s*1.8 * sin(angle - 0.6)),
@@ -1686,18 +1633,16 @@ void drawEnemies() {
             setfillstyle(SOLID_FILL, MAGENTA);
             fillpoly(4, claw1); fillpoly(4, claw2);
             
-            // Khoi cau nao (brain) boc lo ra ngoai
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, LIGHTMAGENTA);
             fillellipse(cx, cy, s*0.7, s*0.7);
             break;
         }
 
-        case 5: // Sniper - Con mat vien vong (Dung lai ban tia laser nham muc tieu)
+        case 5: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             
-            // 4 manh vo ve tinh lo lung xung quanh loi
             setcolor(CYAN);
             for(int j = 0; j < 4; j++) {
                 float a = angle + j * PI/2;
@@ -1705,7 +1650,6 @@ void drawEnemies() {
                      cx + (int)(s*1.5*cos(a)), cy + (int)(s*1.5*sin(a)));
             }
             
-            // Con mat laza khong lo, con nguoi huong ve player
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, LIGHTCYAN);
             int eye[] = {cx, cy-s, cx+s, cy, cx, cy+s, cx-s, cy, cx, cy-s};
@@ -1717,16 +1661,14 @@ void drawEnemies() {
             break;
         }
 
-        case 6: // Bomber - Tui bao tu doc (To, bau binh, san sang no)
+        case 6: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             setcolor(RED);
             setfillstyle(SOLID_FILL, DARKGRAY);
             
-            // Than hinh phi nop, phinh to
             fillellipse(cx, cy, s, s);
             
-            // Nhung cuc buou (bao tu doc) noi len
             setcolor(LIGHTRED);
             setfillstyle(SOLID_FILL, RED);
             fillellipse(cx - s/2, cy - s/3, s/3, s/3);
@@ -1736,71 +1678,67 @@ void drawEnemies() {
             break;
         }
 
-        case 7: // Spinner - Sieu banh rang (Quay tron de cat)
+        case 7: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             setcolor(LIGHTBLUE);
             setfillstyle(SOLID_FILL, BLUE);
             
-            // 8 luoi dao sac nhon quay quanh truc thong qua zigzagTimer
+            // [Phep bien doi Affine - Quay] Quai vat xoay vong lap quanh tam de cat
             int pts[18];
             for (int j = 0; j < 8; j++) {
                 float a = enemies[i].zigzagTimer + j * PI / 4;
-                float r = (j % 2 == 0) ? s * 1.4 : s * 0.5; // Chong cheo tao hinh rang cua
+                float r = (j % 2 == 0) ? s * 1.4 : s * 0.5; 
                 pts[j * 2] = cx + r * cos(a);
                 pts[j * 2 + 1] = cy + r * sin(a);
             }
             pts[16] = pts[0]; pts[17] = pts[1];
             fillpoly(9, pts);
             
-            // Loi bac bemat cat
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, LIGHTGRAY);
             fillellipse(cx, cy, s*0.3, s*0.3);
             break;
         }
 
-        case 8: // Stealth - Bong ma Manta (Bay luot, canh tau bay hinh luoi liem)
+        case 8: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             setcolor(LIGHTGRAY);
             setfillstyle(SOLID_FILL, DARKGRAY);
             
-            // Hinh dang canh luoi liem sac canh
+            // [Phep bien doi Affine - Quay] Quai vat quay theo muc tieu
             int pts[] = {
-                cx + (int)(s*1.8 * cos(angle + PI/2)), cy + (int)(s*1.8 * sin(angle + PI/2)), // Canh phai
-                cx + (int)(s*0.5 * cos(angle)), cy + (int)(s*0.5 * sin(angle)),               // Mui nho nhon
-                cx + (int)(s*1.8 * cos(angle - PI/2)), cy + (int)(s*1.8 * sin(angle - PI/2)), // Canh trai
-                cx - (int)(s*0.5 * cos(angle)), cy - (int)(s*0.5 * sin(angle)),               // Duoi chom ra
+                cx + (int)(s*1.8 * cos(angle + PI/2)), cy + (int)(s*1.8 * sin(angle + PI/2)), 
+                cx + (int)(s*0.5 * cos(angle)), cy + (int)(s*0.5 * sin(angle)),               
+                cx + (int)(s*1.8 * cos(angle - PI/2)), cy + (int)(s*1.8 * sin(angle - PI/2)), 
+                cx - (int)(s*0.5 * cos(angle)), cy - (int)(s*0.5 * sin(angle)),               
                 cx + (int)(s*1.8 * cos(angle + PI/2)), cy + (int)(s*1.8 * sin(angle + PI/2))
             };
             fillpoly(5, pts);
             drawpoly(5, pts);
             
-            // 2 mat do ngau
             setcolor(RED);
             fillellipse(cx + (int)(s*0.5*cos(angle+0.5)), cy + (int)(s*0.5*sin(angle+0.5)), 2, 2);
             fillellipse(cx + (int)(s*0.5*cos(angle-0.5)), cy + (int)(s*0.5*sin(angle-0.5)), 2, 2);
             break;
         }
 
-        case 9: // Kamikaze - Ten lua tu sat (Lua chay phung phuc o duoi)
+        case 9: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             
-            // Duoi lua chay
             setcolor(RED);
             setfillstyle(SOLID_FILL, LIGHTRED);
             int flame[] = {
                 cx, cy, 
                 cx - (int)(s*1.5 * cos(angle-0.3)), cy - (int)(s*1.5 * sin(angle-0.3)),
-                cx - (int)(s*2.0 * cos(angle)), cy - (int)(s*2.0 * sin(angle)), // Dinh lua chot
+                cx - (int)(s*2.0 * cos(angle)), cy - (int)(s*2.0 * sin(angle)), 
                 cx - (int)(s*1.5 * cos(angle+0.3)), cy - (int)(s*1.5 * sin(angle+0.3)),
                 cx, cy
             };
             fillpoly(5, flame);
 
-            // Dau dan xuyen giap
             setcolor(YELLOW);
             setfillstyle(SOLID_FILL, YELLOW);
             int missile[] = {
@@ -1814,13 +1752,12 @@ void drawEnemies() {
             break;
         }
 
-        case 10: // Dodger - Bong ma luot gio (Ne dan nhanhnhen)
+        case 10: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, CYAN);
             
-            // Co the khi dong hoc, thuon dai
             int pts[] = {
                 cx + (int)(s * cos(angle)), cy + (int)(s * sin(angle)),
                 cx + (int)(s * 1.2 * cos(angle + 2.0)), cy + (int)(s * 1.2 * sin(angle + 2.0)),
@@ -1831,20 +1768,18 @@ void drawEnemies() {
             fillpoly(5, pts);
             drawpoly(5, pts);
             
-            // Mach dien phat sang o 2 canh
             setcolor(LIGHTCYAN);
             circle(cx + (int)(s*0.5*cos(angle+2.0)), cy + (int)(s*0.5*sin(angle+2.0)), 2);
             circle(cx + (int)(s*0.5*cos(angle-2.0)), cy + (int)(s*0.5*sin(angle-2.0)), 2);
             break;
         }
 
-        case 11: // Blaster - Phao dai thit (Bo may ban dan hang nang)
+        case 11: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             setcolor(LIGHTMAGENTA);
             setfillstyle(SOLID_FILL, MAGENTA);
             
-            // Khung chu nhat hinh xe tank
             int pts[] = {
                 cx + (int)(s*1.2 * cos(angle-0.5)), cy + (int)(s*1.2 * sin(angle-0.5)),
                 cx + (int)(s*1.2 * cos(angle+0.5)), cy + (int)(s*1.2 * sin(angle+0.5)),
@@ -1854,7 +1789,6 @@ void drawEnemies() {
             };
             fillpoly(5, pts);
 
-            // Nong sung khong lo o mat truoc
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, LIGHTMAGENTA);
             fillellipse(cx + (int)(s*1.2 * cos(angle)), cy + (int)(s*1.2 * sin(angle)), s*0.4, s*0.4);
@@ -1863,50 +1797,46 @@ void drawEnemies() {
             break;
         }
 
-        case 12: // Swarmer - Ky sinh trung (Bay theo dan, nhieu xuc tu)
+        case 12: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             
-            // Xuc tu ngoe nguay (dung thoi gian he thong hoac toa do lam lech pha)
             setcolor(LIGHTGREEN);
             for(int j=0; j<6; j++) {
-                float a = angle + j * PI/3 + sin(cx + cy)*0.5; // Wriggle effect
+                float a = angle + j * PI/3 + sin(cx + cy)*0.5; 
+                // [Ap dung thuat toan Bresenham Line giap tiep bang Line MACRO] - Xu ly xuc tu
                 line(cx, cy, cx + (int)(s*1.2 * cos(a)), cy + (int)(s*1.2 * sin(a)));
             }
             
-            // Than hinh tron ky sinh
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, GREEN);
             fillellipse(cx, cy, (int)(s*0.7), (int)(s*0.7));
             
-            // Mat den lanh leo
             setcolor(BLACK);
             setfillstyle(SOLID_FILL, BLACK);
             fillellipse(cx + (int)(s*0.3 * cos(angle)), cy + (int)(s*0.3 * sin(angle)), 2, 2);
             break;
         }
 
-        case 13: // Phantom (Bong Tuyet Koch xoay) - GIU NGUYEN
+        case 13: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
-            // enemies[i].zigzagTimer duoc lam goc xoay de hinh bong tuyet quay tron theo thoi gian
-            // Ap dung thuat toan Fractal
+            // [Hinh hoc Fractal]
+            // [Phep bien doi Affine - Quay] Quai vat xoay vong lap quanh tam (enemies[i].zigzagTimer)
             drawKochSnowflake(cx, cy, s + 5, 2, enemies[i].zigzagTimer, LIGHTBLUE);
             
-            // Ve them loi nang luong phat sang o giua
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, WHITE);
             fillellipse(cx, cy, 3, 3);
             break;
         }
 
-        case 14: // Charger - Te giac mau (Lao toi dam nguoi choi)
+        case 14: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, RED);
             
-            // Than hinh tho thap
             int body[] = {
                 cx + (int)(s * cos(angle - 1.5)), cy + (int)(s * sin(angle - 1.5)),
                 cx + (int)(s * cos(angle + 1.5)), cy + (int)(s * sin(angle + 1.5)),
@@ -1916,7 +1846,6 @@ void drawEnemies() {
             };
             fillpoly(5, body);
 
-            // 2 chiec sung / nga khong lo chia ra tran ap
             setcolor(LIGHTRED);
             setfillstyle(SOLID_FILL, LIGHTRED);
             int horn1[] = {
@@ -1935,18 +1864,16 @@ void drawEnemies() {
             break;
         }
 
-        case 15: // Sniper Elite - Thien nhan (Mat laser phuc tap)
+        case 15: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             
-            // Ngoi sao 8 canh (Octagram) xoay cham
             setcolor(CYAN);
             for(int j=0; j<8; j++) {
                 float a = enemies[i].zigzagTimer * 0.5 + j * PI/4;
                 line(cx, cy, cx + (int)(s * 1.5 * cos(a)), cy + (int)(s * 1.5 * sin(a)));
             }
 
-            // Dong tu da giac ben trong
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, LIGHTCYAN);
             int pts[10];
@@ -1962,30 +1889,25 @@ void drawEnemies() {
             break;
         }
 
-        // ================== CAC MAU BOSS ==================
-        case 16: // Boss 1: Loi mat troi chet (Dead Sun Core)
+        case 16: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             
-            // Vong hao quang buc xa
             setcolor(LIGHTRED);
             for (int r = s; r < s * 1.5; r += 5) {
-            	// Ap dung thuat toan BresenhamCircle
+                // [Ap dung thuat toan Bresenham Circle] Ve vong hao quang buc xa
                 if (rand()%2 == 0) bresenhamCircle(cx, cy, r, LIGHTRED);
             }
             
-            // Qua cau nang luong mat troi
             setcolor(YELLOW);
             setfillstyle(SOLID_FILL, YELLOW);
             fillellipse(cx, cy, s, s);
             
-            // Mat ran ác doc o giua loi mat troi
             setcolor(RED);
             setfillstyle(SOLID_FILL, RED);
             fillellipse(cx, cy, s/4, s*0.8);
             
-            // 4 Module ve tinh xoay quanh de bao ve
-            float t = enemies[i].specialTimer * 3.0; // Toc do xoay cua ve tinh
+            float t = enemies[i].specialTimer * 3.0; 
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, RED);
             for(int j=0; j<4; j++) {
@@ -1993,18 +1915,17 @@ void drawEnemies() {
                 int px = cx + (int)(s * 1.6 * cos(a));
                 int py = cy + (int)(s * 1.6 * sin(a));
                 fillellipse(px, py, 12, 12);
-                line(cx, cy, px, py); // Tia nang luong noi voi loi
+                line(cx, cy, px, py); 
             }
             break;
         }
 
-        case 17: // Boss 2: Khoi lap phuong huc vo (Void Monolith)
+        case 17: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, MAGENTA);
             
-            // Ve mot hinh luc giac khong lo de tao hieu ung Khoi lap phuong 3D
             int pts[14];
             for (int j = 0; j < 6; j++) {
                 pts[j*2] = cx + s * cos(j * PI / 3 + PI/6);
@@ -2013,27 +1934,24 @@ void drawEnemies() {
             pts[12] = pts[0]; pts[13] = pts[1];
             fillpoly(7, pts);
             
-            // Duong ke luoi (Grid) tao chieu sau 3D
+            // [Ap dung thuat toan Midpoint Line] Ve luoi Grid 3D cua boss khoi lap phuong
             setcolor(LIGHTMAGENTA);
-            line(cx, cy, pts[0], pts[1]);
-            line(cx, cy, pts[4], pts[5]);
-            line(cx, cy, pts[8], pts[9]);
+            midpointLine(cx, cy, pts[0], pts[1], LIGHTMAGENTA);
+            midpointLine(cx, cy, pts[4], pts[5], LIGHTMAGENTA);
+            midpointLine(cx, cy, pts[8], pts[9], LIGHTMAGENTA);
             
-            // Loi mang luoi dien tu
             setcolor(YELLOW);
             setfillstyle(SOLID_FILL, YELLOW);
             fillellipse(cx, cy, s/3, s/3);
             
-            // Vong tron luoi quay cham
             circle(cx, cy, s/1.5);
             break;
         }
 
-        case 18: // Boss 3: To dia nguc (Hell Hive - Ke Trieu hoi)
+        case 18: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             
-            // Khung to ong luc giac (Hive Matrix)
             setcolor(CYAN);
             setfillstyle(SOLID_FILL, DARKGRAY);
             int pts[14];
@@ -2045,7 +1963,6 @@ void drawEnemies() {
             fillpoly(7, pts);
             drawpoly(7, pts);
 
-            // Nhung boc trung phat sang noi len giua to ong
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, LIGHTCYAN);
             for (int j = 0; j < 6; j++) {
@@ -2054,21 +1971,19 @@ void drawEnemies() {
                 fillellipse(px, py, s/4, s/4);
             }
             
-            // Lo tich tu nang luong khong gian (Giao diem goi dan em)
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, WHITE);
             fillellipse(cx, cy, s/3, s/3);
             break;
         }
 
-        case 19: // Boss 4: Sieu ho den (Black Hole Leviathan)
+        case 19: 
         {
             int cx = enemies[i].x, cy = enemies[i].y, s = size;
             
-            // Tu dong quay qua zigzagTimer
+            // [Phep bien doi Affine - Quay] Quai vat xoay vong lap quanh tam (zigzagTimer)
             float rot = enemies[i].zigzagTimer * 2.0; 
             
-            // 5 Xuc tu quai vat xoay vinh cuu giong vong xoay ngan ha
             setcolor(YELLOW);
             setfillstyle(SOLID_FILL, RED);
             for(int j = 0; j < 5; j++) {
@@ -2076,19 +1991,18 @@ void drawEnemies() {
                 int arm[] = {
                     cx, cy,
                     cx + (int)(s * 0.5 * cos(a - 0.5)), cy + (int)(s * 0.5 * sin(a - 0.5)),
-                    cx + (int)(s * 1.5 * cos(a + 0.5)), cy + (int)(s * 1.5 * sin(a + 0.5)), // Phan tuon cong chong chong
+                    cx + (int)(s * 1.5 * cos(a + 0.5)), cy + (int)(s * 1.5 * sin(a + 0.5)), 
                     cx + (int)(s * 0.5 * cos(a + 1.0)), cy + (int)(s * 0.5 * sin(a + 1.0)),
                     cx, cy
                 };
                 fillpoly(5, arm);
             }
             
-            // Mat trung tam: Nuot chung moi thu
             setcolor(WHITE);
             setfillstyle(SOLID_FILL, BLACK);
             fillellipse(cx, cy, s*0.6, s*0.6);
             
-            // Vong tron di diem ben trong ho den
+            // [Ap dung thuat toan Midpoint Circle / BGI Circle] Ve loi mat troi
             setcolor(RED);
             circle(cx, cy, (int)(s * 0.4));
             setcolor(YELLOW);
@@ -2330,15 +2244,12 @@ void drawParticles() {
     for (int i = 0; i < MAX_PARTICLES; i++) {
         if (particles[i].active) {
             if (particles[i].type == 1) {
-                // Ve Shockwave
                 setcolor(particles[i].life > 6 ? WHITE : LIGHTCYAN); 
                 circle(particles[i].x, particles[i].y, (int)particles[i].size);
                 circle(particles[i].x, particles[i].y, (int)particles[i].size - 1); 
             } else {
-                // Ve tia lua vang
                 int col = particles[i].color;
                 
-                // Hat nguoi dan
                 if (particles[i].life < particles[i].maxLife / 3) {
                     col = DARKGRAY; 
                 } else if (particles[i].life < particles[i].maxLife / 2 && col == WHITE) {
@@ -2400,8 +2311,7 @@ void drawUI() {
     sprintf(levelText, "Cap do: %d", difficultyLevel);
     outtextxy(10, 100, levelText);
 
-    // Thong bao khu vuc an toan (Chuyen cap)
-if (levelTransitionTimer > 0 && !gameOver) {
+    if (levelTransitionTimer > 0 && !gameOver) {
         levelTransitionTimer -= 0.02; 
         
         setcolor(YELLOW);
@@ -2419,7 +2329,7 @@ if (levelTransitionTimer > 0 && !gameOver) {
         
     }
 
-if (gameOver) {
+    if (gameOver) {
         setcolor(LIGHTRED);
         settextstyle(DEFAULT_FONT, HORIZ_DIR, 3);
         
@@ -2438,22 +2348,20 @@ if (gameOver) {
     }
 }
 
-// HAM CHINH (MAIN)
 int main() {
-    // Khoi tao do hoa voi kich thuoc man hinh chuan
     initwindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Chien ham ngan ha");
     srand((unsigned int)time(NULL));
 
     initGame();
-    
     showInstructions();
 
-    int page = 0; // Dung cho Double Buffering (Chong nhay man hinh)
+    int page = 0; 
+    bool spacePressed = false; 
 
     while (1) {
-        setactivepage(page); // Ve len trang an
+        setactivepage(page); 
+        cleardevice();       
 
-        // Nhan R de choi lai khi Game Over
         if (gameOver && (GetAsyncKeyState('R') & 0x8000)) {
             mciSendString("stop laser_sound", NULL, 0, NULL); 
             isLaserSoundPlaying = false;
@@ -2461,8 +2369,18 @@ int main() {
         }
         if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) break;
 
-        // --- CHI CAP NHAT TOA DO / LOGIC KHI GAME CHUA OVER ---
         if (!gameOver) {
+            if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
+                if (!spacePressed) {
+                    isPaused = !isPaused; 
+                    spacePressed = true;  
+                }
+            } else {
+                spacePressed = false; 
+            }
+        }
+
+        if (!gameOver && !isPaused) {
             updateStars();
             updatePlayer();
             updateCompanions();
@@ -2474,14 +2392,12 @@ int main() {
             checkCollisions();
         }
 
-        // --- HAM VE DO HOA CHAY LIEN TUC (Giu hinh anh dong bang khi chet) ---
         drawBackground(); 
         drawParticles();
         drawBullets();
         drawEnemies();
         drawPowerUps();
         
-        // Neu da chet thi an may bay di
         if (!gameOver) {
             drawPlayer();
             drawCompanions();
@@ -2490,8 +2406,20 @@ int main() {
         
         drawUI();
 
-        setvisualpage(page); // Hien thi trang vua ve xong
-        page = 1 - page;     // Lat trang
+        if (isPaused && !gameOver) {
+            setcolor(YELLOW);
+            settextstyle(DEFAULT_FONT, HORIZ_DIR, 4);
+            char pauseTitle[] = "TAM DUNG";
+            outtextxy(SCREEN_WIDTH / 2 - textwidth(pauseTitle) / 2, SCREEN_HEIGHT / 2 - 40, pauseTitle);
+
+            setcolor(WHITE);
+            settextstyle(DEFAULT_FONT, HORIZ_DIR, 2);
+            char resumeMsg[] = "Nhan Space de tiep tuc";
+            outtextxy(SCREEN_WIDTH / 2 - textwidth(resumeMsg) / 2, SCREEN_HEIGHT / 2 + 10, resumeMsg);
+        }
+
+        setvisualpage(page); 
+        page = 1 - page;     
 
         delay(20);
     }
